@@ -1,0 +1,2293 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Signoff — Care Approval Chain</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper: #EDEFEA;
+    --surface: #FFFFFF;
+    --ink: #1F2E2B;
+    --ink-soft: #5B6B64;
+    --hairline: #D8DAD2;
+    --brand: #2D5F5D;
+    --brand-soft: #E4EDEB;
+    --approved: #4B7F52;
+    --approved-soft: #E7EFE4;
+    --pending: #B8863B;
+    --pending-soft: #F5EBD8;
+    --rejected: #A24936;
+    --rejected-soft: #F3E3DE;
+    --wound: #6B4E8E;
+    --wound-soft: #EBE5F1;
+    --shadow: 0 1px 2px rgba(31,46,43,0.06), 0 8px 24px rgba(31,46,43,0.06);
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--paper);
+    color:var(--ink);
+    font-family:'Inter',sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  h1,h2,h3,.serif{ font-family:'Fraunces', serif; }
+  .mono{ font-family:'IBM Plex Mono', monospace; letter-spacing:0.01em; }
+
+  #app{ max-width:1180px; margin:0 auto; padding:16px 12px 80px; }
+  @media (min-width:768px){
+    #app{ padding:28px 24px 80px; }
+  }
+
+  /* ---------- Top bar ---------- */
+  .topbar{
+    display:flex; align-items:center; justify-content:space-between;
+    margin-bottom:16px; gap:10px; flex-wrap:wrap;
+  }
+  @media (min-width:768px){
+    .topbar{ margin-bottom:22px; gap:16px; }
+  }
+  .brand{ display:flex; align-items:baseline; gap:10px; }
+  .brand .mark{
+    width:34px; height:34px; border-radius:50%;
+    border:2px solid var(--ink); display:flex; align-items:center; justify-content:center;
+    font-family:'Fraunces',serif; font-size:11px; font-weight:700;
+  }
+  .brand h1{ font-size:22px; margin:0; }
+  .brand .tag{ font-size:12px; color:var(--ink-soft); display:none; }
+  @media (min-width:768px){
+    .brand .tag{ display:inline; }
+  }
+
+  /* Person switcher (desktop: pill buttons, mobile: select dropdown) */
+  .person-switch-mobile{
+    display:flex; align-items:center;
+  }
+  .person-switch-mobile select{
+    font-family:'Inter',sans-serif; font-size:14px; font-weight:600;
+    padding:8px 12px; border-radius:8px; border:1.5px solid var(--hairline);
+    background:var(--surface); color:var(--ink); min-height:44px;
+    -webkit-appearance:none; appearance:none;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='7'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%235B6B64' stroke-width='1.5' fill='none'/%3E%3C/svg%3E");
+    background-repeat:no-repeat; background-position:right 10px center; padding-right:28px;
+  }
+  @media (min-width:768px){
+    .person-switch-mobile{ display:none; }
+  }
+
+  .person-switch{
+    display:none; gap:4px; flex-wrap:wrap; align-items:center;
+  }
+  @media (min-width:768px){
+    .person-switch{ display:flex; }
+  }
+  .person-btn{
+    font-family:'Inter',sans-serif; font-size:11.5px; font-weight:600;
+    padding:5px 10px; border-radius:20px; border:1.5px solid var(--hairline);
+    background:var(--surface); cursor:pointer; transition:all .15s;
+    display:flex; align-items:center; gap:5px; min-height:32px;
+  }
+  @media (hover:hover){
+    .person-btn:hover{ border-color:var(--brand); }
+  }
+  .person-btn.active{ background:var(--ink); color:#fff; border-color:var(--ink); }
+  .person-btn .dot{
+    width:7px; height:7px; border-radius:50%; background:var(--hairline);
+  }
+  .person-btn.active .dot{ background:#4B7F52; }
+  .person-btn .bkp-tag{
+    font-size:9px; font-weight:700; color:var(--pending); text-transform:uppercase; letter-spacing:0.04em;
+  }
+  .person-btn.active .bkp-tag{ color:var(--pending-soft); }
+  .person-sep{
+    font-size:10px; color:var(--ink-soft); font-weight:700; text-transform:uppercase;
+    letter-spacing:0.06em; margin:0 2px;
+  }
+
+  .newref-btn{
+    font-family:'Inter',sans-serif; font-size:13px; font-weight:600;
+    padding:8px 16px; border-radius:8px; border:none;
+    background:var(--brand); color:#fff; cursor:pointer; transition:background .15s;
+    min-height:44px;
+  }
+  @media (hover:hover){
+    .newref-btn:hover{ background:#1d4543; }
+  }
+  .newref-btn:disabled{ opacity:.35; cursor:not-allowed; }
+
+  /* ---------- Stats ---------- */
+  .stats{ display:flex; gap:8px; margin-bottom:16px; flex-wrap:wrap; }
+  @media (min-width:768px){
+    .stats{ gap:12px; margin-bottom:20px; }
+  }
+  .stat{
+    background:var(--surface); border-radius:10px; padding:10px 14px;
+    min-width:0; flex:1; box-shadow:var(--shadow);
+  }
+  @media (min-width:768px){
+    .stat{ padding:12px 18px; min-width:130px; flex:none; }
+  }
+  .stat .num{ font-family:'Fraunces',serif; font-size:22px; font-weight:600; }
+  @media (min-width:768px){
+    .stat .num{ font-size:26px; }
+  }
+  .stat .lbl{ font-size:10.5px; color:var(--ink-soft); margin-top:2px; }
+  @media (min-width:768px){
+    .stat .lbl{ font-size:11.5px; }
+  }
+
+  /* ---------- Layout ---------- */
+  .layout{ display:flex; flex-direction:column; gap:0; }
+  @media (min-width:768px){
+    .layout{ display:grid; grid-template-columns:340px 1fr; gap:18px; align-items:start; }
+  }
+  .panel{
+    background:var(--surface); border-radius:12px; box-shadow:var(--shadow);
+    overflow:hidden;
+  }
+  .panel-list{ padding:14px; }
+  @media (min-width:768px){
+    .panel-list{ padding:18px; }
+  }
+  .panel-detail{ padding:0; }
+  @media (min-width:768px){
+    .panel-detail{ padding:0; }
+  }
+
+  /* Mobile: list/detail toggle */
+  .layout.view-detail .panel-list{ display:none; }
+  .layout.view-list .panel-detail{ display:none; }
+  @media (min-width:768px){
+    .layout.view-detail .panel-list,
+    .layout.view-list .panel-detail{ display:block; }
+  }
+
+  .back-btn{
+    display:flex; align-items:center; gap:4px;
+    font-family:'Inter',sans-serif; font-size:13px; font-weight:600;
+    color:var(--brand); background:none; border:none; cursor:pointer;
+    padding:12px 16px 4px; min-height:44px;
+  }
+  @media (min-width:768px){
+    .back-btn{ display:none; }
+  }
+
+  .panel-head{
+    display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;
+  }
+  .panel-head h2{ font-size:16px; margin:0; }
+
+  .filter-toggle{ display:flex; gap:4px; }
+  .filter-toggle button{
+    font-family:'Inter',sans-serif; font-size:11px; font-weight:600;
+    padding:4px 10px; border:1.5px solid var(--hairline); border-radius:6px;
+    background:transparent; cursor:pointer; min-height:32px;
+  }
+  .filter-toggle button.active{ background:var(--ink); color:#fff; border-color:var(--ink); }
+
+  /* ---------- Case list ---------- */
+  .case-row{
+    padding:12px 14px; border-radius:8px; cursor:pointer;
+    border:1.5px solid transparent; margin-bottom:6px; transition:border .12s;
+    min-height:44px;
+  }
+  @media (hover:hover){
+    .case-row:hover{ border-color:var(--brand); }
+  }
+  .case-row.selected{ border-color:var(--brand); background:var(--brand-soft); }
+  .case-row .top-line{ display:flex; justify-content:space-between; }
+  .case-row .patient{ font-weight:700; font-size:14px; }
+  .case-row .waiting{ font-size:11px; color:var(--ink-soft); }
+  .case-row .stage-line{ font-size:12px; color:var(--ink-soft); margin-top:2px; }
+  .case-row .badges{ display:flex; gap:6px; margin-top:6px; flex-wrap:wrap; }
+  .badge{
+    font-size:10.5px; font-weight:700; letter-spacing:0.04em; text-transform:uppercase;
+    padding:3px 8px; border-radius:20px;
+  }
+  .badge.st-approved{ background:var(--approved-soft); color:var(--approved); }
+  .badge.st-pending{  background:var(--pending-soft);  color:var(--pending);  }
+  .badge.st-rejected{ background:var(--rejected-soft); color:var(--rejected); }
+  .badge.line-hh{ background:#EFF1EE; color:#4A5C54; }
+  .badge.line-wc{ background:var(--wound-soft); color:var(--wound); }
+  .badge.st-stalled{ background:var(--rejected-soft); color:var(--rejected); }
+  .badge.st-overdue{ background:var(--pending-soft); color:var(--pending); }
+  .timing-bar{
+    display:flex; align-items:center; gap:8px; font-size:12px; margin-top:8px;
+    padding:8px 12px; border-radius:6px; font-weight:600;
+  }
+  .timing-bar.onTime{ background:var(--approved-soft); color:var(--approved); }
+  .timing-bar.overTarget{ background:var(--pending-soft); color:var(--pending); }
+  .timing-bar.stalled{ background:var(--rejected-soft); color:var(--rejected); }
+  .timing-bar .timing-label{ font-weight:400; }
+  .empty{ font-size:13px; color:var(--ink-soft); text-align:center; padding:32px 8px; }
+
+  /* ---------- Case detail ---------- */
+  .detail-head{ padding:12px 16px 6px; }
+  @media (min-width:768px){
+    .detail-head{ padding:18px 24px 8px; }
+  }
+  .detail-head .eyebrow{
+    font-family:'IBM Plex Mono',monospace; font-size:11px; color:var(--ink-soft);
+    letter-spacing:0.04em;
+  }
+  .detail-head h2{ font-size:20px; margin:6px 0 4px; }
+  .meta-row{ display:flex; gap:16px; font-size:12.5px; flex-wrap:wrap; }
+  .meta-row b{ color:var(--ink-soft); text-transform:uppercase; font-size:10px; letter-spacing:0.04em; display:block; margin-bottom:1px; }
+
+  /* ---------- Timeline ---------- */
+  .timeline{ padding:8px 16px 16px; position:relative; }
+  @media (min-width:768px){
+    .timeline{ padding:8px 24px 24px; }
+  }
+  .stage{
+    display:flex; gap:12px; margin-bottom:0; padding-bottom:20px; position:relative;
+  }
+  @media (min-width:768px){
+    .stage{ gap:14px; padding-bottom:22px; }
+  }
+  .stage::before{
+    content:''; position:absolute; left:14px; top:30px; bottom:0;
+    width:2px; background:var(--hairline);
+  }
+  .stage:last-of-type::before{ display:none; }
+  .node{
+    width:30px; height:30px; min-width:30px; border-radius:50%; display:flex;
+    align-items:center; justify-content:center; font-size:11px; font-weight:700;
+    font-family:'IBM Plex Mono',monospace; z-index:1;
+  }
+  .node.approved{  background:var(--approved); color:#fff; }
+  .node.rejected{  background:var(--rejected); color:#fff; }
+  .node.pending{   background:var(--pending-soft); color:var(--pending); border:2px solid var(--pending); }
+  .node.locked{    background:var(--paper); color:var(--ink-soft); border:2px solid var(--hairline); }
+  .wc-stage .node.approved{ background:var(--wound); }
+  .wc-stage .node.pending{  background:var(--wound-soft); color:var(--wound); border-color:var(--wound); }
+
+  .stage-body{ flex:1; padding-top:3px; min-width:0; }
+  .stage-title-row{ display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:4px; }
+  .stage-title{ font-weight:700; font-size:14px; }
+  .stage-role{ font-size:12px; color:var(--ink-soft); }
+  .stage-meta{ font-size:11px; color:var(--ink-soft); }
+
+  .stage-note{
+    font-size:12.5px; background:var(--approved-soft); border-radius:6px;
+    padding:8px 12px; margin-top:6px; word-break:break-word;
+  }
+  .reject-note{ background:var(--rejected-soft); }
+
+  .stamp{
+    display:flex; flex-direction:column; align-items:center; gap:1px;
+    border:2px solid var(--approved); border-radius:8px; padding:6px 12px;
+    font-family:'IBM Plex Mono',monospace; color:var(--approved);
+    transform:rotate(-2deg); flex-shrink:0;
+  }
+  .stamp .initials{ font-size:16px; font-weight:700; letter-spacing:0.06em; }
+  .stamp .word{ font-size:8px; text-transform:uppercase; letter-spacing:0.1em; }
+  .stamp .person-name{
+    font-size:8px; color:var(--ink-soft); max-width:80px; text-align:center;
+    overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+  }
+
+  .wc-stage .stamp{ border-color:var(--wound); color:var(--wound); }
+
+  .action-box{
+    margin-top:10px; background:var(--surface); border:1.5px solid var(--hairline);
+    border-radius:8px; padding:12px 14px;
+  }
+  .action-box .prompt{ font-size:12px; color:var(--ink-soft); margin-bottom:6px; font-weight:600; }
+  .action-box textarea{
+    width:100%; border:1.5px solid var(--hairline); border-radius:6px; padding:8px 10px;
+    font-family:'Inter',sans-serif; font-size:16px; min-height:56px; resize:vertical;
+  }
+  @media (min-width:768px){
+    .action-box textarea{ font-size:13px; }
+  }
+  .action-row{ display:flex; gap:8px; margin-top:8px; }
+  .btn{
+    font-family:'Inter',sans-serif; font-size:13px; font-weight:600;
+    padding:8px 16px; border-radius:8px; border:none; cursor:pointer;
+    min-height:44px; display:inline-flex; align-items:center; justify-content:center;
+  }
+  .btn-approve{ background:var(--approved); color:#fff; }
+  @media (hover:hover){
+    .btn-approve:hover{ background:#3d6842; }
+  }
+  .btn-reject{ background:var(--rejected-soft); color:var(--rejected); }
+  @media (hover:hover){
+    .btn-reject:hover{ background:#e5cbc4; }
+  }
+  .btn-cancel{ background:var(--paper); color:var(--ink-soft); }
+  .btn-escalate{ background:var(--wound); color:#fff; }
+  @media (hover:hover){
+    .btn-escalate:hover{ background:#5a3f78; }
+  }
+
+  .waiting-note{
+    font-size:12px; color:var(--ink-soft); font-style:italic; margin-top:8px;
+  }
+
+  .divider{
+    font-size:11px; font-weight:700; text-transform:uppercase;
+    letter-spacing:0.06em; color:var(--wound); margin:16px 0 12px 44px;
+    display:flex; align-items:center; gap:8px;
+  }
+  .divider::before{ content:''; flex:1; height:1px; background:var(--wound-soft); }
+  .divider::after{ content:''; flex:1; height:1px; background:var(--wound-soft); }
+
+  /* Sticky bottom bar on mobile for approve/reject */
+  .sticky-actions{
+    position:fixed; bottom:0; left:0; right:0;
+    background:var(--surface); border-top:1px solid var(--hairline);
+    padding:10px 16px; padding-bottom:calc(10px + env(safe-area-inset-bottom, 0px));
+    z-index:40; display:flex; gap:8px;
+  }
+  .sticky-actions .btn{ flex:1; }
+  @media (min-width:768px){
+    .sticky-actions{ display:none; }
+  }
+
+  .escalate-box{
+    margin-top:8px; padding:16px; border:1.5px dashed var(--wound); border-radius:12px; background:var(--wound-soft);
+  }
+  .escalate-box h3{ font-size:14px; margin:0 0 6px; color:var(--wound); }
+  .escalate-box p{ font-size:12.5px; color:var(--ink-soft); margin:0 0 10px; line-height:1.5; }
+
+  .export-row{ display:flex; justify-content:flex-end; margin-bottom:10px; }
+  .btn-export{
+    font-family:'Inter',sans-serif; font-size:11px; font-weight:600;
+    padding:5px 12px; border-radius:6px; border:1.5px solid var(--hairline);
+    background:var(--surface); color:var(--ink-soft); cursor:pointer;
+    min-height:32px; display:inline-flex; align-items:center; gap:4px;
+  }
+  @media (hover:hover){
+    .btn-export:hover{ border-color:var(--brand); color:var(--brand); }
+  }
+
+  .status-strip{ padding:14px 16px; border-top:1px solid var(--hairline); background:var(--paper); font-size:12.5px; color:var(--ink-soft); }
+  @media (min-width:768px){
+    .status-strip{ padding:14px 24px; }
+  }
+
+  /* ---------- History items within a stage ---------- */
+  .stage-history{ margin-top:6px; margin-bottom:4px; }
+  .stage-history-item{
+    font-size:12px; padding:6px 10px; border-radius:5px; margin-top:4px;
+    border-left:3px solid var(--hairline); background:var(--paper); word-break:break-word;
+  }
+  .stage-history-item.hist-sendback{ border-left-color:var(--rejected); background:var(--rejected-soft); }
+  .stage-history-item.hist-resubmit{ border-left-color:var(--pending); background:var(--pending-soft); }
+  .stage-history-item.hist-signoff{ border-left-color:var(--approved); background:var(--approved-soft); }
+  .stage-history-item.hist-warning{ border-left-color:var(--pending); background:var(--pending-soft); }
+  .stage-history-item .hist-time{ font-family:'IBM Plex Mono'; font-size:10.5px; color:var(--ink-soft); margin-left:6px; }
+  .backup-label{ font-size:10px; color:var(--pending); font-weight:700; font-style:italic; }
+
+  /* ---------- Modal: full-screen on phones, centered on 768px+ ---------- */
+  .modal-backdrop{
+    position:fixed; inset:0; background:rgba(31,46,43,0.38); z-index:50;
+    display:flex; align-items:flex-end; justify-content:center;
+  }
+  @media (min-width:768px){
+    .modal-backdrop{ align-items:center; }
+  }
+  .modal{
+    background:var(--surface); width:100%; max-height:92vh; overflow-y:auto;
+    border-radius:16px 16px 0 0; padding:20px 16px calc(20px + env(safe-area-inset-bottom, 0px));
+  }
+  @media (min-width:768px){
+    .modal{ width:460px; border-radius:14px; padding:28px; max-height:88vh; box-shadow:0 20px 60px rgba(31,46,43,0.18); }
+  }
+  .modal-head h2{ margin:0 0 4px; font-size:18px; }
+  .modal-head p{ font-size:13px; color:var(--ink-soft); margin:0 0 14px; }
+  .modal-head-row{ display:flex; justify-content:space-between; align-items:flex-start; }
+  .modal-close{
+    font-size:24px; background:none; border:none; color:var(--ink-soft);
+    cursor:pointer; padding:4px 8px; min-height:44px; min-width:44px;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .modal-body .field{ margin-bottom:14px; }
+  .modal-body label{
+    display:block; font-size:11px; text-transform:uppercase;
+    letter-spacing:0.06em; font-weight:700; color:var(--ink-soft); margin-bottom:4px;
+  }
+  .modal-body input[type=text], .modal-body textarea{
+    width:100%; border:1.5px solid var(--hairline); border-radius:6px;
+    padding:8px 10px; font-family:'Inter',sans-serif; font-size:16px;
+  }
+  @media (min-width:768px){
+    .modal-body input[type=text], .modal-body textarea{ font-size:13px; }
+  }
+  .modal-body textarea{ min-height:56px; resize:vertical; }
+  .modal-foot{ display:flex; justify-content:flex-end; gap:8px; margin-top:16px; }
+  .field-check{
+    display:flex !important; flex-direction:row !important; align-items:center !important; gap:8px !important;
+  }
+  .field-check input[type=checkbox]{ width:auto; min-width:20px; min-height:20px; }
+  .field-check label{
+    margin:0 !important; text-transform:none !important; letter-spacing:normal !important;
+    font-size:13px !important; font-weight:600 !important; color:var(--ink) !important; cursor:pointer;
+  }
+
+  /* ---------- Attachments ---------- */
+  .attach-section{ padding:12px 16px 4px; }
+  @media (min-width:768px){
+    .attach-section{ padding:12px 24px 4px; }
+  }
+  .attach-section-title{ font-size:11px; text-transform:uppercase; letter-spacing:0.06em; color:var(--ink-soft); font-weight:700; margin-bottom:8px; }
+  .attach-grid{ display:flex; flex-wrap:wrap; gap:8px; }
+  .attach-thumb{
+    width:68px; height:68px; border-radius:8px; border:1px solid var(--hairline);
+    object-fit:cover; cursor:pointer; transition:opacity .15s; min-height:44px;
+  }
+  @media (hover:hover){
+    .attach-thumb:hover{ opacity:0.75; }
+  }
+  .attach-chip{
+    display:inline-flex; align-items:center; gap:5px; padding:10px 12px;
+    border-radius:8px; border:1px solid var(--hairline); background:var(--paper);
+    font-size:12px; font-weight:600; cursor:pointer; color:var(--ink); min-height:44px;
+  }
+  @media (hover:hover){
+    .attach-chip:hover{ background:var(--hairline); }
+  }
+  .wound-warning{
+    padding:10px 14px; border-radius:8px; border:1.5px solid var(--rejected);
+    background:var(--rejected-soft); color:var(--rejected); font-size:12.5px;
+    font-weight:600; margin-bottom:10px; line-height:1.4;
+  }
+  .field-error{
+    color:var(--rejected); font-size:12px; font-weight:600; margin-top:4px;
+    display:none;
+  }
+  .field-error.visible{ display:block; }
+  .field.has-error input, .field.has-error textarea{
+    border-color:var(--rejected); box-shadow:0 0 0 2px var(--rejected-soft);
+  }
+  .file-list{ display:flex; gap:6px; flex-wrap:wrap; margin-top:6px; }
+  .file-tag{ font-size:11px; padding:3px 8px; border-radius:6px; background:var(--approved-soft); color:var(--approved); font-weight:600; }
+
+  /* ---------- Lightbox ---------- */
+  .lightbox{
+    position:fixed; inset:0; background:rgba(31,46,43,0.85);
+    display:flex; align-items:center; justify-content:center;
+    z-index:60; cursor:pointer; padding:16px;
+  }
+  @media (min-width:768px){
+    .lightbox{ padding:40px; }
+  }
+  .lightbox img{ max-width:100%; max-height:90vh; border-radius:8px; box-shadow:0 20px 60px rgba(0,0,0,0.4); cursor:default; }
+  .lightbox iframe{ width:100%; height:85vh; border:none; border-radius:8px; cursor:default; }
+  @media (min-width:768px){
+    .lightbox img{ max-width:90vw; }
+    .lightbox iframe{ width:80vw; }
+  }
+
+  ::-webkit-scrollbar{ width:8px; }
+  ::-webkit-scrollbar-thumb{ background:var(--hairline); border-radius:8px; }
+
+  /* ---------- Notification bell ---------- */
+  .bell-wrap{ position:relative; }
+  .bell-btn{
+    background:none; border:1.5px solid var(--hairline); border-radius:50%;
+    width:40px; height:40px; min-width:40px; min-height:40px;
+    display:flex; align-items:center; justify-content:center;
+    cursor:pointer; position:relative; font-size:18px; line-height:1;
+  }
+  @media (hover:hover){
+    .bell-btn:hover{ border-color:var(--brand); }
+  }
+  .bell-count{
+    position:absolute; top:-4px; right:-4px;
+    background:var(--rejected); color:#fff; font-size:10px; font-weight:700;
+    min-width:18px; height:18px; border-radius:9px; display:flex;
+    align-items:center; justify-content:center; padding:0 4px;
+    font-family:'Inter',sans-serif;
+  }
+  .notif-dropdown{
+    position:absolute; top:48px; right:0; width:340px; max-height:400px;
+    overflow-y:auto; background:var(--surface); border-radius:12px;
+    box-shadow:0 8px 32px rgba(31,46,43,0.18); border:1px solid var(--hairline);
+    z-index:55;
+  }
+  @media (max-width:767px){
+    .notif-dropdown{ position:fixed; top:auto; bottom:0; left:0; right:0; width:100%;
+      max-height:70vh; border-radius:16px 16px 0 0;
+      padding-bottom:env(safe-area-inset-bottom, 0px);
+    }
+  }
+  .notif-header{
+    padding:12px 16px; border-bottom:1px solid var(--hairline);
+    font-size:12px; font-weight:700; text-transform:uppercase;
+    letter-spacing:0.06em; color:var(--ink-soft);
+    display:flex; justify-content:space-between; align-items:center;
+  }
+  .notif-header button{
+    font-family:'Inter',sans-serif; font-size:11px; font-weight:600;
+    background:none; border:none; color:var(--brand); cursor:pointer;
+    padding:4px 8px; min-height:32px;
+  }
+  .notif-item{
+    padding:10px 16px; border-bottom:1px solid var(--hairline);
+    cursor:pointer; font-size:12.5px; line-height:1.4;
+    transition:background .12s;
+  }
+  @media (hover:hover){
+    .notif-item:hover{ background:var(--brand-soft); }
+  }
+  .notif-item.unread{ background:var(--pending-soft); }
+  .notif-item .notif-title{ font-weight:700; margin-bottom:2px; }
+  .notif-item .notif-body{ color:var(--ink-soft); }
+  .notif-item .notif-time{ font-size:10.5px; color:var(--ink-soft); font-family:'IBM Plex Mono',monospace; margin-top:2px; }
+  .notif-item .notif-badge{
+    display:inline-block; font-size:9px; font-weight:700; text-transform:uppercase;
+    letter-spacing:0.04em; padding:2px 6px; border-radius:4px; margin-right:4px;
+  }
+  .notif-badge.nb-turn{ background:var(--brand-soft); color:var(--brand); }
+  .notif-badge.nb-sendback{ background:var(--rejected-soft); color:var(--rejected); }
+  .notif-badge.nb-stalled{ background:var(--rejected-soft); color:var(--rejected); }
+  .notif-badge.nb-active{ background:var(--approved-soft); color:var(--approved); }
+  .notif-badge.nb-visit-stalled{ background:var(--rejected-soft); color:var(--rejected); }
+  .notif-empty{ padding:24px 16px; text-align:center; color:var(--ink-soft); font-size:13px; }
+  .notif-overlay{
+    position:fixed; inset:0; z-index:54; background:transparent;
+  }
+  @media (max-width:767px){
+    .notif-overlay{ background:rgba(31,46,43,0.38); }
+  }
+
+  /* ---------- Visits ---------- */
+  .visits-section{
+    padding:16px; border-top:1px solid var(--hairline);
+  }
+  @media (min-width:768px){
+    .visits-section{ padding:16px 24px; }
+  }
+  .visits-section-title{
+    font-size:11px; text-transform:uppercase; letter-spacing:0.06em;
+    color:var(--ink-soft); font-weight:700; margin-bottom:12px;
+    display:flex; justify-content:space-between; align-items:center;
+  }
+  .visit-card{
+    background:var(--paper); border-radius:8px; padding:12px 14px;
+    margin-bottom:8px; border-left:3px solid var(--approved);
+  }
+  .visit-card.in-progress{ border-left-color:var(--pending); background:var(--pending-soft); }
+  .visit-card .visit-top{
+    display:flex; justify-content:space-between; align-items:baseline; flex-wrap:wrap; gap:4px;
+  }
+  .visit-card .visit-nurse{ font-weight:700; font-size:13px; }
+  .visit-card .visit-time{ font-size:11px; color:var(--ink-soft); font-family:'IBM Plex Mono',monospace; }
+  .visit-card .visit-duration{ font-size:12px; font-weight:600; color:var(--approved); }
+  .visit-card.in-progress .visit-duration{ color:var(--pending); }
+  .visit-card .visit-notes{ font-size:12.5px; margin-top:6px; line-height:1.5; word-break:break-word; }
+  .visit-card .visit-amendment{
+    margin-top:6px; padding:8px 10px; border-radius:6px;
+    background:var(--surface); border-left:3px solid var(--pending);
+    font-size:12px; word-break:break-word;
+  }
+  .visit-form{
+    margin-top:10px; padding:14px; background:var(--surface);
+    border:1.5px solid var(--hairline); border-radius:8px;
+  }
+  .visit-form textarea{
+    width:100%; border:1.5px solid var(--hairline); border-radius:6px; padding:8px 10px;
+    font-family:'Inter',sans-serif; font-size:16px; min-height:56px; resize:vertical;
+    margin-bottom:8px;
+  }
+  @media (min-width:768px){
+    .visit-form textarea{ font-size:13px; }
+  }
+  .badge.st-open-visit{ background:var(--rejected-soft); color:var(--rejected); }
+  .amend-form{
+    margin-top:6px; padding:10px; background:var(--surface);
+    border:1.5px solid var(--hairline); border-radius:6px;
+  }
+  .amend-form textarea{
+    width:100%; border:1.5px solid var(--hairline); border-radius:6px; padding:8px 10px;
+    font-family:'Inter',sans-serif; font-size:16px; min-height:44px; resize:vertical;
+    margin-bottom:6px;
+  }
+  @media (min-width:768px){
+    .amend-form textarea{ font-size:13px; }
+  }
+
+  /* ---------- Footer ---------- */
+  .app-footer{
+    margin-top:32px; padding:16px; text-align:center;
+    border-top:1px solid var(--hairline);
+  }
+  .app-footer .disclaimer{
+    font-size:12px; color:var(--ink-soft); line-height:1.5; margin-bottom:12px;
+  }
+  .btn-reset{
+    font-family:'Inter',sans-serif; font-size:12px; font-weight:600;
+    padding:8px 14px; border-radius:6px; border:1.5px solid var(--hairline);
+    background:var(--surface); color:var(--ink-soft); cursor:pointer;
+    min-height:44px; display:inline-flex; align-items:center;
+  }
+  @media (hover:hover){
+    .btn-reset:hover{ border-color:var(--rejected); color:var(--rejected); }
+  }
+
+  /* Pad bottom for sticky action bar on phone */
+  .detail-has-actions{ padding-bottom:80px; }
+  @media (min-width:768px){
+    .detail-has-actions{ padding-bottom:0; }
+  }
+</style>
+</head>
+<body>
+<div id="app"></div>
+
+<script>
+const ROLES = [
+  {id:'doctor',      title:'Doctor',         code:'DR'},
+  {id:'head_nurse',  title:'Head Nurse',     code:'HN'},
+  {id:'head_staff',  title:'Head of Staff',  code:'HOS'},
+  {id:'nurse',       title:'Nurse',          code:'RN'},
+];
+
+const USERS = [
+  {id:'dr_patel',   name:'Dr. Aarav Patel',    initials:'AP', role:'doctor',     isBackup:false},
+  {id:'dr_chen',    name:'Dr. Mei-Lin Chen',   initials:'MC', role:'doctor',     isBackup:true},
+  {id:'hn_okafor',  name:'Grace Okafor, RN',   initials:'GO', role:'head_nurse', isBackup:false},
+  {id:'hn_reeves',  name:'Diane Reeves, RN',   initials:'DRv',role:'head_nurse', isBackup:true},
+  {id:'hos_grant',  name:'Thomas Grant',        initials:'TG', role:'head_staff', isBackup:false},
+  {id:'hos_wells',  name:'Sandra Wells',        initials:'SW', role:'head_staff', isBackup:true},
+  {id:'rn_torres',  name:'Maria Torres, RN',   initials:'MT', role:'nurse',      isBackup:false},
+  {id:'rn_kim',     name:'James Kim, RN',      initials:'JK', role:'nurse',      isBackup:true},
+];
+
+function userById(id){ return USERS.find(u=>u.id===id) || null; }
+function primaryForRole(roleId){ return USERS.find(u=>u.role===roleId && !u.isBackup); }
+
+function stageTemplate(line){
+  const suffix = line === 'wound_care' ? ' \u2014 stem cell wound care' : '';
+  return [
+    {role:'doctor',     title:'Doctor order submitted' + suffix},
+    {role:'head_nurse',  title:'Head nurse review' + suffix},
+    {role:'head_staff',  title:'Head of staff approval' + suffix},
+    {role:'nurse',       title:'Nurse check-in confirmed' + suffix},
+  ];
+}
+
+let state = {
+  currentUserId: 'dr_patel',
+  selectedCaseId: null,
+  showOnlyMine: true,
+  showModal: false,
+  resubmitModal: null,
+  lightboxUrl: null,
+  mobileView: 'list',
+  notifOpen: false,
+  amendingVisitId: null,
+  cases: [],
+};
+
+// Per-user last-read timestamp. Keys are user IDs; values are Date objects.
+// Notifications with timestamps <= readAt are considered read.
+const readAt = {};
+USERS.forEach(u => { readAt[u.id] = new Date(0); });
+
+function curUser(){ return userById(state.currentUserId); }
+function curRole(){ return curUser().role; }
+function curRoleInfo(){ return ROLES.find(r=>r.id===curRole()); }
+
+function uid(){ return 'C' + Math.random().toString(36).slice(2,7).toUpperCase(); }
+function attId(){ return 'A' + Math.random().toString(36).slice(2,7).toUpperCase(); }
+function now(){ return new Date(); }
+function fmtTime(d){
+  if(!d) return '';
+  return d.toLocaleDateString('en-US',{month:'short',day:'numeric'}) + ' \u00b7 ' + d.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'});
+}
+function ago(d){
+  const mins = Math.round((now()-d)/60000);
+  if(mins < 60) return mins + 'm ago';
+  const hrs = Math.round(mins/60);
+  if(hrs < 24) return hrs + 'h ago';
+  return Math.round(hrs/24) + 'd ago';
+}
+
+function actorFields(userId){
+  const u = userById(userId);
+  return {
+    actorId: u.id,
+    actorName: u.name,
+    actorInitials: u.initials,
+    role: u.role,
+    isBackup: u.isBackup,
+  };
+}
+
+function backupLabel(evt){
+  if(!evt.isBackup) return '';
+  const primary = primaryForRole(evt.role);
+  return primary ? '(backup for ' + primary.name + ')' : '(backup)';
+}
+
+/*
+ * SOP 5.4 — Stalled-case timeframes.
+ * Uses wall-clock hours for the prototype; production should use business hours.
+ * "resubmit" key applies when the current stage is a doctor resubmission (sendback pending).
+ */
+const TIMEFRAMES = {
+  head_nurse: { targetHours: 4,  flagHours: 8  },
+  head_staff: { targetHours: 4,  flagHours: 8  },
+  nurse:      { targetHours: 24, flagHours: 72 },
+  resubmit:   { targetHours: 8,  flagHours: 16 },
+};
+
+/*
+ * Compute the timing status of a case's current pending stage.
+ * Returns null for fully-approved or no-current-stage cases.
+ * Otherwise: { elapsedHours, targetHours, flagHours, timerStart, level }
+ *   level: 'onTime' | 'overTarget' | 'stalled'
+ */
+function caseTiming(c){
+  const cur = currentStage(c);
+  if(!cur) return null;
+
+  // Doctor resubmission: stage was sent back, clock starts at the sendback event
+  const isResubmit = cur.status === 'rejected' && cur.role !== 'doctor';
+  if(isResubmit){
+    const chainLine = c.chains[cur.chainIndex].line;
+    const sendbackEvt = [...c.events].reverse().find(e =>
+      e.chainLine === chainLine && e.stageIndex === cur.stageIndex && e.type === 'sendback'
+    );
+    if(!sendbackEvt) return null;
+    const tf = TIMEFRAMES.resubmit;
+    const elapsed = (now() - sendbackEvt.timestamp) / 3600000;
+    return {
+      elapsedHours: elapsed,
+      targetHours: tf.targetHours,
+      flagHours: tf.flagHours,
+      timerStart: sendbackEvt.timestamp,
+      level: elapsed >= tf.flagHours ? 'stalled' : elapsed >= tf.targetHours ? 'overTarget' : 'onTime',
+    };
+  }
+
+  // Normal pending stage: clock starts at the event that handed it to this role
+  if(cur.status !== 'pending') return null;
+  const tf = TIMEFRAMES[cur.role];
+  if(!tf) return null; // doctor stage 0 has no timeframe
+
+  const chainLine = c.chains[cur.chainIndex].line;
+  // Find the most recent event that made this the current stage:
+  // - previous stage's signoff, or
+  // - a resubmit event on this chain (after a send-back cycle)
+  let timerStart = null;
+  for(let i = c.events.length - 1; i >= 0; i--){
+    const e = c.events[i];
+    if(e.chainLine !== chainLine) continue;
+    // A resubmit that restarted the chain and put us back here
+    if(e.type === 'resubmit' && e.stageIndex === cur.stageIndex){ timerStart = e.timestamp; break; }
+    if(e.type === 'resubmit' && e.fullChainRestart){ timerStart = e.timestamp; break; }
+    // Previous stage's signoff
+    if(e.type === 'signoff' && e.stageIndex === cur.stageIndex - 1){ timerStart = e.timestamp; break; }
+    // For stage 0 (doctor), the created event
+    if(e.type === 'created' && cur.stageIndex === 0){ timerStart = e.timestamp; break; }
+  }
+  if(!timerStart) return null;
+
+  const elapsed = (now() - timerStart) / 3600000;
+  return {
+    elapsedHours: elapsed,
+    targetHours: tf.targetHours,
+    flagHours: tf.flagHours,
+    timerStart,
+    level: elapsed >= tf.flagHours ? 'stalled' : elapsed >= tf.targetHours ? 'overTarget' : 'onTime',
+  };
+}
+
+function fmtElapsed(hours){
+  if(hours < 1) return Math.round(hours * 60) + 'm';
+  if(hours < 24) return Math.round(hours) + 'h';
+  return Math.round(hours / 24) + 'd ' + Math.round(hours % 24) + 'h';
+}
+
+/* ---------- Persistence (localStorage) ---------- */
+
+const STORAGE_KEY = 'signoff_prototype_state';
+
+function saveState(){
+  try {
+    const payload = {
+      cases: state.cases,
+      readAt: {},
+    };
+    USERS.forEach(u => { payload.readAt[u.id] = readAt[u.id] ? readAt[u.id].toISOString() : null; });
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+  } catch(e){ /* quota exceeded or private browsing — silently skip */ }
+}
+
+function reviveDates(obj){
+  if(obj === null || obj === undefined) return obj;
+  if(typeof obj === 'string' && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(obj)){
+    const d = new Date(obj);
+    if(!isNaN(d)) return d;
+  }
+  if(Array.isArray(obj)) return obj.map(reviveDates);
+  if(typeof obj === 'object'){
+    const out = {};
+    for(const k in obj) out[k] = reviveDates(obj[k]);
+    return out;
+  }
+  return obj;
+}
+
+function loadState(){
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if(!raw) return false;
+    const payload = reviveDates(JSON.parse(raw));
+    if(!payload.cases || !Array.isArray(payload.cases) || payload.cases.length === 0) return false;
+    state.cases = payload.cases;
+    state.selectedCaseId = state.cases[0].id;
+    if(payload.readAt){
+      Object.keys(payload.readAt).forEach(uid => {
+        if(payload.readAt[uid]) readAt[uid] = payload.readAt[uid];
+      });
+    }
+    return true;
+  } catch(e){ return false; }
+}
+
+function resetState(){
+  localStorage.removeItem(STORAGE_KEY);
+  USERS.forEach(u => { readAt[u.id] = new Date(0); });
+  state.cases = [];
+  state.selectedCaseId = null;
+  state.mobileView = 'list';
+  seedCases();
+  render();
+}
+
+/* ---------- Event log helpers ---------- */
+
+function appendEvent(c, evt){
+  c.events.push({...evt, timestamp: evt.timestamp || now()});
+  saveState();
+}
+
+function stageStatus(c, chainIndex, stageIndex){
+  const chainLine = c.chains[chainIndex].line;
+  const relevant = c.events.filter(e =>
+    e.chainLine === chainLine && e.stageIndex === stageIndex &&
+    (e.type === 'signoff' || e.type === 'sendback' || e.type === 'resubmit')
+  );
+  if(relevant.length === 0) return 'pending';
+  const latest = relevant[relevant.length - 1];
+  if(latest.type === 'signoff'){
+    if(stageIndex > 0){
+      const latestIdx = c.events.indexOf(latest);
+      const hasFullRestart = c.events.some((e, i) =>
+        i > latestIdx && e.chainLine === chainLine && e.type === 'resubmit' && e.fullChainRestart
+      );
+      if(hasFullRestart) return 'pending';
+    }
+    return 'approved';
+  }
+  if(latest.type === 'sendback') return 'rejected';
+  return 'pending';
+}
+
+function stageLatestAction(c, chainIndex, stageIndex){
+  const chainLine = c.chains[chainIndex].line;
+  const status = stageStatus(c, chainIndex, stageIndex);
+  if(status === 'approved'){
+    const signoffs = c.events.filter(e => e.chainLine === chainLine && e.stageIndex === stageIndex && e.type === 'signoff');
+    return signoffs[signoffs.length - 1];
+  }
+  if(status === 'rejected'){
+    const sendbacks = c.events.filter(e => e.chainLine === chainLine && e.stageIndex === stageIndex && e.type === 'sendback');
+    return sendbacks[sendbacks.length - 1];
+  }
+  return null;
+}
+
+function stageHistoryEvents(c, chainIndex, stageIndex){
+  const chainLine = c.chains[chainIndex].line;
+  const all = c.events.filter(e =>
+    e.chainLine === chainLine && e.stageIndex === stageIndex &&
+    (e.type === 'created' || e.type === 'signoff' || e.type === 'sendback' || e.type === 'resubmit')
+  );
+  if(all.length === 0) return [];
+  const status = stageStatus(c, chainIndex, stageIndex);
+  if(status === 'pending') return all;
+  const lastActionIdx = all.findLastIndex(e => e.type === 'signoff' || e.type === 'sendback');
+  if(lastActionIdx === -1) return all;
+  return all.filter((e, i) => i !== lastActionIdx);
+}
+
+function flatten(c){
+  const out = [];
+  c.chains.forEach((chain, ci) => chain.stages.forEach((s,si) => {
+    const status = stageStatus(c, ci, si);
+    const action = stageLatestAction(c, ci, si);
+    out.push({
+      ...s,
+      status,
+      by: action ? action.actorInitials : null,
+      byName: action ? action.actorName : null,
+      byId: action ? action.actorId : null,
+      isBackup: action ? !!action.isBackup : false,
+      at: action ? action.timestamp : null,
+      note: action ? action.note : '',
+      chainIndex: ci,
+      stageIndex: si,
+      line: chain.line,
+    });
+  }));
+  return out;
+}
+
+function currentStage(c){
+  const flat = flatten(c);
+  return flat.find(s => s.status !== 'approved') || null;
+}
+function isFullyApproved(c, line){
+  const ci = c.chains.findIndex(ch => ch.line === line);
+  if(ci === -1) return false;
+  return c.chains[ci].stages.every((_, si) => stageStatus(c, ci, si) === 'approved');
+}
+function hasEscalated(c){ return c.chains.some(ch => ch.line === 'wound_care'); }
+function caseStatusLabel(c){
+  const cur = currentStage(c);
+  if(!cur){
+    return hasEscalated(c) ? 'Active \u2014 Wound Care' : 'Active \u2014 Home Health';
+  }
+  if(cur.status === 'rejected') return 'Needs revision';
+  const roleName = ROLES.find(r=>r.id===cur.role).title;
+  return 'Awaiting ' + roleName;
+}
+function caseBadgeTone(c){
+  const cur = currentStage(c);
+  if(!cur) return 'approved';
+  if(cur.status === 'rejected') return 'rejected';
+  return 'pending';
+}
+
+function currentDiagnosis(c){
+  for(let i = c.events.length - 1; i >= 0; i--){
+    if(c.events[i].diagnosis !== undefined) return c.events[i].diagnosis;
+  }
+  return c.diagnosis;
+}
+function currentOrderNote(c){
+  for(let i = c.events.length - 1; i >= 0; i--){
+    if(c.events[i].orderNote !== undefined) return c.events[i].orderNote;
+  }
+  return '';
+}
+function currentIsWoundRelated(c){
+  for(let i = c.events.length - 1; i >= 0; i--){
+    if(c.events[i].isWoundRelated !== undefined) return c.events[i].isWoundRelated;
+  }
+  return false;
+}
+function currentVisitFrequency(c){
+  for(let i = c.events.length - 1; i >= 0; i--){
+    if(c.events[i].visitFrequency !== undefined) return c.events[i].visitFrequency;
+  }
+  return '';
+}
+function isWoundDiagnosis(text){
+  return /wound|ulcer|pressure/i.test(text);
+}
+function caseImageCount(c){
+  return c.attachments.filter(a => a.type.startsWith('image/')).length;
+}
+function readFiles(fileInput){
+  if(!fileInput || !fileInput.files || fileInput.files.length === 0) return Promise.resolve([]);
+  return Promise.all(Array.from(fileInput.files).map(file => {
+    return new Promise(resolve => {
+      const reader = new FileReader();
+      reader.onload = () => resolve({
+        id: attId(),
+        name: file.name,
+        type: file.type,
+        dataUrl: reader.result,
+      });
+      reader.readAsDataURL(file);
+    });
+  }));
+}
+
+/* ---------- Visit helpers (SOP §7) ---------- */
+
+function isCaseActive(c){
+  return !currentStage(c);
+}
+
+function openVisitForCase(c){
+  // Find a visit_started not yet completed
+  const starts = c.events.filter(e => e.type === 'visit_started');
+  for(let i = starts.length - 1; i >= 0; i--){
+    const vs = starts[i];
+    const completed = c.events.some(e => e.type === 'visit_completed' && e.visitId === vs.visitId);
+    if(!completed) return vs;
+  }
+  return null;
+}
+
+function openVisitAnywhere(userId){
+  // Returns {caseId, visit} or null
+  for(const c of state.cases){
+    const ov = openVisitForCase(c);
+    if(ov && ov.actorId === userId) return {caseId: c.id, visit: ov};
+  }
+  return null;
+}
+
+function completedVisits(c){
+  return c.events.filter(e => e.type === 'visit_completed').map(evt => {
+    const amendments = c.events.filter(a => a.type === 'visit_amended' && a.visitId === evt.visitId);
+    return {...evt, amendments};
+  });
+}
+
+function openVisitTiming(visitEvt){
+  if(!visitEvt) return null;
+  const elapsed = (now() - visitEvt.timestamp) / 3600000;
+  const targetHours = 4;
+  const flagHours = 4;
+  return {
+    elapsedHours: elapsed,
+    targetHours,
+    flagHours,
+    timerStart: visitEvt.timestamp,
+    level: elapsed >= flagHours ? 'stalled' : 'onTime',
+  };
+}
+
+/* ---------- Notifications (SOP §9 — derived, never stored on events) ---------- */
+
+function deriveNotifications(userId){
+  const u = userById(userId);
+  if(!u) return [];
+  const notifs = [];
+
+  state.cases.forEach(c => {
+    const flat = flatten(c);
+
+    c.events.forEach((evt, ei) => {
+      // (a) Turn notification: a signoff made a new stage current — notify persons owning that next role
+      if(evt.type === 'signoff'){
+        const chainLine = evt.chainLine;
+        const ci = c.chains.findIndex(ch => ch.line === chainLine);
+        if(ci === -1) return;
+        const nextSi = evt.stageIndex + 1;
+        const chain = c.chains[ci];
+        if(nextSi < chain.stages.length){
+          const nextRole = chain.stages[nextSi].role;
+          if(u.role === nextRole){
+            notifs.push({
+              id: c.id + ':turn:' + ei,
+              caseId: c.id,
+              type: 'turn',
+              title: c.patient + ' — your turn',
+              body: (ROLES.find(r=>r.id===evt.role)||{}).title + ' signed off. Ready for your review.',
+              timestamp: evt.timestamp,
+            });
+          }
+        }
+      }
+
+      // (b) Send-back notification: notify all doctors
+      if(evt.type === 'sendback' && u.role === 'doctor'){
+        notifs.push({
+          id: c.id + ':sendback:' + ei,
+          caseId: c.id,
+          type: 'sendback',
+          title: c.patient + ' — sent back',
+          body: evt.note || 'No reason given.',
+          timestamp: evt.timestamp,
+        });
+      }
+    });
+
+    // (c) Stalled alert: notify head_of_staff users when a case crosses flag threshold
+    const timing = caseTiming(c);
+    if(timing && timing.level === 'stalled' && u.role === 'head_staff'){
+      // Use the timerStart + flagHours as the notification timestamp
+      const stalledAt = new Date(timing.timerStart.getTime() + timing.flagHours * 3600000);
+      notifs.push({
+        id: c.id + ':stalled',
+        caseId: c.id,
+        type: 'stalled',
+        title: c.patient + ' — STALLED',
+        body: fmtElapsed(timing.elapsedHours) + ' elapsed, flag threshold ' + timing.flagHours + 'h exceeded.',
+        timestamp: stalledAt,
+      });
+    }
+
+    // (d2) Stalled visit: notify head_of_staff when a visit is open past 4h
+    if(u.role === 'head_staff'){
+      const ov = openVisitForCase(c);
+      if(ov){
+        const vt = openVisitTiming(ov);
+        if(vt && vt.level === 'stalled'){
+          const stalledAt = new Date(ov.timestamp.getTime() + vt.flagHours * 3600000);
+          notifs.push({
+            id: c.id + ':visit-stalled:' + ov.visitId,
+            caseId: c.id,
+            type: 'visit-stalled',
+            title: c.patient + ' — visit STALLED',
+            body: escapeHtml(ov.actorName) + ' has an open visit for ' + fmtElapsed(vt.elapsedHours) + '. Notes not yet submitted.',
+            timestamp: stalledAt,
+          });
+        }
+      }
+    }
+
+    // (d) Activation notice: notify head_of_staff when all chains are fully approved
+    if(u.role === 'head_staff'){
+      // Find the last signoff that made the case fully active
+      const allApproved = c.chains.every(ch => {
+        const ci = c.chains.indexOf(ch);
+        return ch.stages.every((_, si) => stageStatus(c, ci, si) === 'approved');
+      });
+      if(allApproved){
+        // Find the last signoff event (the one that completed the chain)
+        const lastSignoff = [...c.events].reverse().find(e => e.type === 'signoff');
+        if(lastSignoff){
+          notifs.push({
+            id: c.id + ':active',
+            caseId: c.id,
+            type: 'active',
+            title: c.patient + ' — now Active',
+            body: 'All approvals complete. Scheduled care may begin.',
+            timestamp: lastSignoff.timestamp,
+          });
+        }
+      }
+    }
+  });
+
+  // Sort newest first
+  notifs.sort((a,b) => b.timestamp - a.timestamp);
+  return notifs;
+}
+
+function unreadCount(userId){
+  const notifs = deriveNotifications(userId);
+  const ra = readAt[userId] || new Date(0);
+  return notifs.filter(n => n.timestamp > ra).length;
+}
+
+/* ---------- Seed data ---------- */
+
+function seedCases(){
+  const t = (hoursAgo) => new Date(Date.now() - 1000*60*60*hoursAgo);
+
+  // Eleanor: Head nurse signed off 20h ago, head of staff hasn't acted — should be stalled (flag at 8h)
+  const c1 = { id: uid(), patient:'Eleanor Vance', diagnosis:'Post-surgical rehab, hip replacement', createdAt: t(26), chains:[{line:'home_health', stages: stageTemplate('home_health')}], events:[], attachments:[] };
+  appendEvent(c1, {type:'created', ...actorFields('dr_patel'), timestamp: t(26), note:'', chainLine:'home_health', stageIndex:0, diagnosis:'Post-surgical rehab, hip replacement', visitFrequency:'3x/week', orderNote:'Ordered per discharge plan, PT 3x/week.', isWoundRelated:false});
+  appendEvent(c1, {type:'signoff', ...actorFields('dr_patel'), timestamp: t(26), note:'Ordered per discharge plan, PT 3x/week.', chainLine:'home_health', stageIndex:0});
+  appendEvent(c1, {type:'signoff', ...actorFields('hn_okafor'), timestamp: t(20), note:'Reviewed, matches discharge summary.', chainLine:'home_health', stageIndex:1});
+
+  const c2 = { id: uid(), patient:'Marcus Webb', diagnosis:'Diabetic foot ulcer, stage 2', createdAt: t(72), chains:[{line:'home_health', stages: stageTemplate('home_health')}], events:[], attachments:[] };
+  appendEvent(c2, {type:'created', ...actorFields('dr_patel'), timestamp: t(72), note:'', chainLine:'home_health', stageIndex:0, diagnosis:'Diabetic foot ulcer, stage 2', visitFrequency:'Daily', orderNote:'Standard wound dressing protocol.', isWoundRelated:true});
+  appendEvent(c2, {type:'signoff', ...actorFields('dr_patel'), timestamp: t(70), note:'Standard wound dressing protocol.', chainLine:'home_health', stageIndex:0});
+  appendEvent(c2, {type:'signoff', ...actorFields('hn_okafor'), timestamp: t(60), note:'', chainLine:'home_health', stageIndex:1});
+  appendEvent(c2, {type:'signoff', ...actorFields('hos_grant'), timestamp: t(50), note:'', chainLine:'home_health', stageIndex:2});
+  appendEvent(c2, {type:'signoff', ...actorFields('rn_torres'), timestamp: t(40), note:'Patient seen, wound matches referral description.', chainLine:'home_health', stageIndex:3});
+
+  const c3 = { id: uid(), patient:'Ines Duarte', diagnosis:'Medication management, post-CHF admission', createdAt: new Date(Date.now()-1000*60*30), chains:[{line:'home_health', stages: stageTemplate('home_health')}], events:[], attachments:[] };
+  appendEvent(c3, {type:'created', ...actorFields('dr_chen'), timestamp: new Date(Date.now()-1000*60*30), note:'', chainLine:'home_health', stageIndex:0, diagnosis:'Medication management, post-CHF admission', visitFrequency:'Daily', orderNote:'Daily check-in for diuretic titration.', isWoundRelated:false});
+  appendEvent(c3, {type:'signoff', ...actorFields('dr_chen'), timestamp: new Date(Date.now()-1000*60*30), note:'Daily check-in for diuretic titration.', chainLine:'home_health', stageIndex:0});
+
+  // Harold: sent back 10h ago, doctor hasn't resubmitted — overdue (target 8h, flag 16h)
+  const c4 = { id: uid(), patient:'Harold Ng', diagnosis:'Non-healing pressure wound, sacral', createdAt: t(14), chains:[{line:'home_health', stages: stageTemplate('home_health')}], events:[], attachments:[] };
+  appendEvent(c4, {type:'created', ...actorFields('dr_patel'), timestamp: t(14), note:'', chainLine:'home_health', stageIndex:0, diagnosis:'Non-healing pressure wound, sacral', visitFrequency:'2x/week', orderNote:'', isWoundRelated:true});
+  appendEvent(c4, {type:'signoff', ...actorFields('dr_patel'), timestamp: t(14), note:'', chainLine:'home_health', stageIndex:0});
+  appendEvent(c4, {type:'sendback', ...actorFields('hn_reeves'), timestamp: t(10), note:'Wound photos missing from order \u2014 please attach and resubmit.', chainLine:'home_health', stageIndex:1});
+
+  state.cases = [c1,c2,c3,c4];
+  state.selectedCaseId = c1.id;
+}
+
+/* ---------- Render ---------- */
+
+function render(){
+  const app = document.getElementById('app');
+  const user = curUser();
+  const role = curRoleInfo();
+  const selected = state.cases.find(c=>c.id===state.selectedCaseId) || state.cases[0];
+
+  const pendingForMe = state.cases.filter(c => { const s = currentStage(c); return s && s.status==='pending' && s.role===curRole(); });
+  const activeCount = state.cases.filter(c => !currentStage(c)).length;
+  const stalledCount = state.cases.filter(c => { const t = caseTiming(c); return t && t.level === 'stalled'; }).length;
+
+  let listCases = state.cases;
+  if(state.showOnlyMine){
+    listCases = state.cases.filter(c => { const s = currentStage(c); return s && s.role===curRole(); });
+  }
+  listCases = [...listCases].sort((a,b)=>{
+    // Stalled/overdue sort to top
+    const ta = caseTiming(a), tb = caseTiming(b);
+    const urgA = ta ? (ta.level === 'stalled' ? 0 : ta.level === 'overTarget' ? 1 : 3) : 3;
+    const urgB = tb ? (tb.level === 'stalled' ? 0 : tb.level === 'overTarget' ? 1 : 3) : 3;
+    if(urgA !== urgB) return urgA - urgB;
+    const sa = currentStage(a), sb = currentStage(b);
+    const pa = sa && sa.role===curRole() ? 0 : 1;
+    const pb = sb && sb.role===curRole() ? 0 : 1;
+    if(pa!==pb) return pa-pb;
+    return b.createdAt - a.createdAt;
+  });
+
+  // Determine if detail has an active action for sticky bar
+  const cur = selected ? currentStage(selected) : null;
+  const hasAction = cur && cur.status === 'pending' && cur.role === curRole();
+  const hasResubmit = cur && cur.status === 'rejected' && cur.role !== 'doctor' && curRole() === 'doctor';
+  const showStickyBar = (hasAction || hasResubmit) && state.mobileView === 'detail';
+
+  // Build person switcher (desktop pills)
+  let switcherHtml = '';
+  ROLES.forEach((r, ri) => {
+    if(ri > 0) switcherHtml += '<span class="person-sep">\u00b7</span>';
+    USERS.filter(u => u.role === r.id).forEach(u => {
+      switcherHtml += `<button class="person-btn ${u.id===state.currentUserId?'active':''}" data-action="switch-user" data-uid="${u.id}" title="${escapeHtml(u.name)}${u.isBackup?' (backup)':''}">
+        <span class="dot"></span>${u.initials}${u.isBackup ? ' <span class="bkp-tag">bkp</span>' : ''}
+      </button>`;
+    });
+  });
+
+  // Build mobile select
+  let mobileSelectHtml = '';
+  ROLES.forEach(r => {
+    mobileSelectHtml += `<optgroup label="${r.title}">`;
+    USERS.filter(u => u.role === r.id).forEach(u => {
+      mobileSelectHtml += `<option value="${u.id}" ${u.id===state.currentUserId?'selected':''}>${u.name}${u.isBackup?' (backup)':''}</option>`;
+    });
+    mobileSelectHtml += '</optgroup>';
+  });
+
+  app.innerHTML = `
+    <div class="topbar">
+      <div class="brand">
+        <div class="mark">SO</div>
+        <h1>Signoff</h1>
+        <span class="tag">\u2014 referral &amp; approval chain</span>
+      </div>
+      <div class="person-switch-mobile">
+        <select data-action="switch-user-select">${mobileSelectHtml}</select>
+      </div>
+      <div class="person-switch">
+        ${switcherHtml}
+      </div>
+      <div class="bell-wrap">
+        <button class="bell-btn" data-action="toggle-notifs" aria-label="Notifications">
+          \u{1F514}${unreadCount(state.currentUserId) > 0 ? `<span class="bell-count">${unreadCount(state.currentUserId)}</span>` : ''}
+        </button>
+        ${state.notifOpen ? notifDropdownHtml() : ''}
+      </div>
+      <button class="newref-btn" data-action="open-modal" ${curRole()!=='doctor' ? 'disabled title="Only physicians start new referrals"' : ''}>+ New referral</button>
+    </div>
+
+    <div class="stats">
+      <div class="stat"><div class="num">${pendingForMe.length}</div><div class="lbl">Waiting on ${role.title}</div></div>
+      <div class="stat"><div class="num">${state.cases.length}</div><div class="lbl">Total cases</div></div>
+      <div class="stat"><div class="num">${activeCount}</div><div class="lbl">Fully active</div></div>
+      <div class="stat"><div class="num" ${stalledCount > 0 ? 'style="color:var(--rejected);"' : ''}>${stalledCount}</div><div class="lbl">Stalled</div></div>
+    </div>
+
+    <div class="layout ${state.mobileView === 'detail' ? 'view-detail' : 'view-list'}">
+      <div class="panel panel-list">
+        <div class="panel-head">
+          <h2>Cases</h2>
+          <div class="filter-toggle">
+            <button class="${state.showOnlyMine?'active':''}" data-action="filter" data-val="mine">Needs me</button>
+            <button class="${!state.showOnlyMine?'active':''}" data-action="filter" data-val="all">All</button>
+          </div>
+        </div>
+        <div class="case-list">
+          ${listCases.length ? listCases.map(c => caseRow(c)).join('') : `<div class="empty">Nothing waiting on ${escapeHtml(user.name)} right now.</div>`}
+        </div>
+      </div>
+
+      <div class="panel panel-detail ${showStickyBar ? 'detail-has-actions' : ''}">
+        <button class="back-btn" data-action="back-to-list">\u2190 Cases</button>
+        ${selected ? caseDetail(selected) : `<div class="empty">Select a case</div>`}
+      </div>
+    </div>
+
+    <div class="app-footer">
+      <div class="disclaimer">Prototype \u2014 not for real patient data. HIPAA safeguards required before production use (SOP \u00a710).</div>
+      <button class="btn-reset" data-action="reset-demo">Reset demo data</button>
+    </div>
+
+    ${showStickyBar ? stickyActionBar(selected, cur) : ''}
+    ${state.showModal ? newReferralModal() : ''}
+    ${state.resubmitModal ? reviseModal() : ''}
+    ${state.lightboxUrl ? lightboxModal() : ''}
+  `;
+  attachHandlers();
+}
+
+function notifDropdownHtml(){
+  const notifs = deriveNotifications(state.currentUserId);
+  const ra = readAt[state.currentUserId] || new Date(0);
+  const badgeClass = {turn:'nb-turn', sendback:'nb-sendback', stalled:'nb-stalled', active:'nb-active', 'visit-stalled':'nb-visit-stalled'};
+  const badgeLabel = {turn:'Turn', sendback:'Sent back', stalled:'Stalled', active:'Active', 'visit-stalled':'Visit stalled'};
+
+  let itemsHtml = '';
+  if(notifs.length === 0){
+    itemsHtml = '<div class="notif-empty">No notifications</div>';
+  } else {
+    notifs.forEach(n => {
+      const isUnread = n.timestamp > ra;
+      itemsHtml += `
+        <div class="notif-item ${isUnread ? 'unread' : ''}" data-action="notif-click" data-case="${n.caseId}" data-nts="${n.timestamp.getTime()}">
+          <div class="notif-title"><span class="notif-badge ${badgeClass[n.type]||''}">${badgeLabel[n.type]||n.type}</span>${escapeHtml(n.title)}</div>
+          <div class="notif-body">${escapeHtml(n.body)}</div>
+          <div class="notif-time">${fmtTime(n.timestamp)}</div>
+        </div>`;
+    });
+  }
+
+  const hasUnread = notifs.some(n => n.timestamp > ra);
+  return `
+    <div class="notif-overlay" data-action="close-notifs"></div>
+    <div class="notif-dropdown">
+      <div class="notif-header">
+        <span>Notifications</span>
+        ${hasUnread ? '<button data-action="mark-all-read">Mark all read</button>' : ''}
+      </div>
+      ${itemsHtml}
+    </div>`;
+}
+
+function stickyActionBar(c, cur){
+  if(!c || !cur) return '';
+  const hasResubmit = cur.status === 'rejected' && cur.role !== 'doctor' && curRole() === 'doctor';
+  if(hasResubmit){
+    return `
+      <div class="sticky-actions">
+        <button class="btn btn-approve" data-action="open-resubmit" data-id="${c.id}" data-ci="${cur.chainIndex}" data-si="${cur.stageIndex}">\u21ba Revise &amp; resubmit</button>
+      </div>`;
+  }
+  if(cur.status === 'pending' && cur.role === curRole()){
+    return `
+      <div class="sticky-actions">
+        <button class="btn btn-approve" data-action="approve" data-id="${c.id}" data-ci="${cur.chainIndex}" data-si="${cur.stageIndex}">Approve &amp; sign</button>
+        <button class="btn btn-reject" data-action="reject" data-id="${c.id}" data-ci="${cur.chainIndex}" data-si="${cur.stageIndex}">Send back</button>
+      </div>`;
+  }
+  return '';
+}
+
+function caseRow(c){
+  const cur = currentStage(c);
+  const lineNow = hasEscalated(c) && !isFullyApproved(c,'home_health') === false && hasEscalated(c) ? 'wound_care' : (c.chains[c.chains.length-1].line);
+  const badgeTone = caseBadgeTone(c);
+  const timing = caseTiming(c);
+  let timingBadge = '';
+  if(timing && timing.level === 'stalled'){
+    timingBadge = `<span class="badge st-stalled">Stalled ${fmtElapsed(timing.elapsedHours)}</span>`;
+  } else if(timing && timing.level === 'overTarget'){
+    timingBadge = `<span class="badge st-overdue">Overdue ${fmtElapsed(timing.elapsedHours)}</span>`;
+  }
+  const ov = openVisitForCase(c);
+  const openVisitBadge = ov ? '<span class="badge st-open-visit">Unsubmitted notes</span>' : '';
+  return `
+    <div class="case-row ${c.id===state.selectedCaseId?'selected':''}" data-action="select-case" data-id="${c.id}">
+      <div class="top-line">
+        <span class="patient">${c.patient}</span>
+        <span class="waiting">${ago(c.createdAt)}</span>
+      </div>
+      <div class="stage-line">${escapeHtml(currentDiagnosis(c))}</div>
+      <div class="badges">
+        <span class="badge line-${lineNow==='wound_care'?'wc':'hh'}">${lineNow==='wound_care'?'Wound care':'Home health'}</span>
+        <span class="badge st-${badgeTone}">${caseStatusLabel(c)}</span>
+        ${timingBadge}
+        ${openVisitBadge}
+      </div>
+    </div>`;
+}
+
+function caseDetail(c){
+  const flat = flatten(c);
+  const cur = currentStage(c);
+  const homeApproved = isFullyApproved(c,'home_health');
+  const escalated = hasEscalated(c);
+  const canEscalateRole = curRole() === 'head_nurse' || curRole() === 'doctor';
+
+  let timelineHtml = '';
+  let seenWC = false;
+  flat.forEach((s) => {
+    if(s.line==='wound_care' && !seenWC){
+      const escEvt = c.events.find(e => e.type === 'escalated');
+      timelineHtml += `<div class="divider">Escalated to stem cell wound care${escEvt ? ' by ' + escapeHtml(escEvt.actorName) + ' \u00b7 ' + fmtTime(escEvt.timestamp) : ''}</div>`;
+      seenWC = true;
+    }
+    timelineHtml += stageHtml(c, s);
+  });
+
+  return `
+    <div class="detail-head">
+      <div class="eyebrow">${c.id} \u00b7 ${escalated?'Home Health \u2192 Wound Care':'Home Health'}${currentIsWoundRelated(c) ? ' \u00b7 Wound referral' : ''}</div>
+      <h2>${c.patient}</h2>
+      <div class="meta-row">
+        <span><b>Diagnosis</b> ${escapeHtml(currentDiagnosis(c))}</span>
+        ${currentVisitFrequency(c) ? `<span><b>Frequency</b> ${escapeHtml(currentVisitFrequency(c))}</span>` : ''}
+        <span><b>Opened</b> ${fmtTime(c.createdAt)}</span>
+        <span><b>Stage</b> ${caseStatusLabel(c)}</span>
+      </div>
+      ${timingBarHtml(c)}
+    </div>
+    ${attachmentsSectionHtml(c)}
+    <div class="timeline">
+      ${timelineHtml}
+      ${(!cur && homeApproved && !escalated) ? `
+        <div class="escalate-box">
+          <h3>Home health chain complete</h3>
+          <p>If this wound isn\u2019t responding to standard home health care, escalate to the stem cell wound care team. This opens a new doctor \u2192 head nurse \u2192 head of staff \u2192 nurse chain for the wound care business line.</p>
+          ${canEscalateRole
+            ? `<button class="btn btn-escalate" data-action="escalate" data-id="${c.id}">Escalate to wound care</button>`
+            : `<div class="waiting-note">Only a physician or head nurse can trigger escalation.</div>`}
+        </div>` : ''}
+      ${auditTrailHtml(c)}
+    </div>
+    ${visitsSectionHtml(c)}
+    <div class="status-strip">Chain of custody is append-only \u2014 every signature is timestamped and attributed to role + individual (SOP \u00a77).</div>
+  `;
+}
+
+function visitsSectionHtml(c){
+  const active = isCaseActive(c);
+  if(!active) return '';
+
+  const ov = openVisitForCase(c);
+  const visits = completedVisits(c);
+  const isNurse = curRole() === 'nurse';
+  const user = curUser();
+  const blockedElsewhere = isNurse ? openVisitAnywhere(user.id) : null;
+  const blockedOnOther = blockedElsewhere && blockedElsewhere.caseId !== c.id;
+  const hasOpenHere = ov && ov.actorId === user.id;
+
+  let actionHtml = '';
+  if(isNurse){
+    if(hasOpenHere){
+      // Show complete-visit form
+      const vt = openVisitTiming(ov);
+      const stalledHtml = vt && vt.level === 'stalled'
+        ? `<div class="wound-warning" style="margin-bottom:8px;">This visit has been open for ${fmtElapsed(vt.elapsedHours)}. Please submit notes promptly (SOP \u00a77.4).</div>`
+        : '';
+      actionHtml = `
+        <div class="visit-form">
+          ${stalledHtml}
+          <div style="font-size:12px;color:var(--ink-soft);margin-bottom:6px;font-weight:600;">
+            Clock-in: ${fmtTime(ov.timestamp)} \u00b7 ${fmtElapsed((now() - ov.timestamp) / 3600000)} elapsed
+          </div>
+          <textarea id="visit-notes" placeholder="Visit notes (required) \u2014 patient condition, care delivered, concerns..."></textarea>
+          <div class="field-error" id="visit-notes-err">Visit notes are required.</div>
+          <button class="btn btn-approve" data-action="complete-visit" data-id="${c.id}" data-vid="${ov.visitId}">Complete visit</button>
+        </div>`;
+    } else if(blockedOnOther){
+      const blockedCase = state.cases.find(x => x.id === blockedElsewhere.caseId);
+      actionHtml = `<div class="waiting-note">You have an open visit on ${blockedCase ? escapeHtml(blockedCase.patient) : 'another case'}. Submit those notes before starting a new visit.</div>`;
+    } else if(!ov){
+      actionHtml = `<button class="btn btn-approve" data-action="start-visit" data-id="${c.id}" style="margin-top:8px;">Start visit</button>`;
+    } else {
+      // Another nurse has an open visit
+      actionHtml = `<div class="waiting-note">${escapeHtml(ov.actorName)} has a visit in progress.</div>`;
+    }
+  }
+
+  let visitsHtml = '';
+  if(ov){
+    const vt = openVisitTiming(ov);
+    visitsHtml += `
+      <div class="visit-card in-progress">
+        <div class="visit-top">
+          <span class="visit-nurse">${escapeHtml(ov.actorName)}</span>
+          <span class="visit-duration">In progress${vt ? ' \u00b7 ' + fmtElapsed(vt.elapsedHours) : ''}</span>
+        </div>
+        <div class="visit-time">Clock-in: ${fmtTime(ov.timestamp)}</div>
+      </div>`;
+  }
+
+  [...visits].reverse().forEach(v => {
+    let amendHtml = '';
+    v.amendments.forEach(a => {
+      amendHtml += `<div class="visit-amendment"><b>Amendment by ${escapeHtml(a.actorName)}</b> <span style="font-size:10.5px;color:var(--ink-soft);">${fmtTime(a.timestamp)}</span><br>${escapeHtml(a.note)}</div>`;
+    });
+
+    const canAmend = isNurse && !hasOpenHere;
+    const amendBtn = canAmend
+      ? `<button class="btn btn-cancel" style="font-size:11px;padding:4px 10px;min-height:32px;margin-top:4px;" data-action="toggle-amend" data-vid="${v.visitId}" data-id="${c.id}">Add amendment</button>`
+      : '';
+    const showAmendForm = state.amendingVisitId === v.visitId;
+
+    visitsHtml += `
+      <div class="visit-card">
+        <div class="visit-top">
+          <span class="visit-nurse">${escapeHtml(v.actorName)}</span>
+          <span class="visit-duration">${v.durationMinutes} min</span>
+        </div>
+        <div class="visit-time">${fmtTime(v.clockIn)} \u2192 ${fmtTime(v.clockOut)}</div>
+        <div class="visit-notes">${escapeHtml(v.notes)}</div>
+        ${amendHtml}
+        ${amendBtn}
+        ${showAmendForm ? `
+          <div class="amend-form">
+            <textarea id="amend-notes" placeholder="Amendment note (required)..."></textarea>
+            <div class="field-error" id="amend-notes-err">Amendment note is required.</div>
+            <div style="display:flex;gap:6px;">
+              <button class="btn btn-approve" style="font-size:12px;padding:6px 12px;min-height:36px;" data-action="submit-amend" data-vid="${v.visitId}" data-id="${c.id}">Submit amendment</button>
+              <button class="btn btn-cancel" style="font-size:12px;padding:6px 12px;min-height:36px;" data-action="cancel-amend">Cancel</button>
+            </div>
+          </div>` : ''}
+      </div>`;
+  });
+
+  return `
+    <div class="visits-section">
+      <div class="visits-section-title">
+        <span>Visits (${visits.length}${ov ? ' + 1 in progress' : ''})</span>
+      </div>
+      ${visitsHtml}
+      ${actionHtml}
+      ${visits.length === 0 && !ov && !isNurse ? '<div class="empty" style="padding:16px 0;">No visits recorded yet.</div>' : ''}
+    </div>`;
+}
+
+function timingBarHtml(c){
+  const timing = caseTiming(c);
+  if(!timing) return '';
+  const cur = currentStage(c);
+  const isResubmit = cur && cur.status === 'rejected' && cur.role !== 'doctor';
+  const waitingOn = isResubmit ? 'Doctor resubmission' : (ROLES.find(r=>r.id===cur.role)||{}).title;
+  const levelLabel = timing.level === 'stalled' ? 'STALLED' : timing.level === 'overTarget' ? 'OVERDUE' : 'On time';
+  return `
+    <div class="timing-bar ${timing.level}">
+      <span><b>${levelLabel}</b></span>
+      <span class="timing-label">${fmtElapsed(timing.elapsedHours)} elapsed \u00b7 target ${timing.targetHours}h \u00b7 flag at ${timing.flagHours}h \u00b7 waiting on ${escapeHtml(waitingOn)}</span>
+    </div>`;
+}
+
+function attachmentsSectionHtml(c){
+  if(c.attachments.length === 0) return '';
+  let html = '<div class="attach-section"><div class="attach-section-title">Attachments (' + c.attachments.length + ')</div><div class="attach-grid">';
+  c.attachments.forEach(a => {
+    if(a.type.startsWith('image/')){
+      html += `<img class="attach-thumb" src="${a.dataUrl}" alt="${escapeHtml(a.name)}" title="${escapeHtml(a.name)} \u2014 added by ${escapeHtml(a.addedByName)} ${fmtTime(a.addedAt)}" data-action="open-lightbox" data-url="${a.dataUrl}">`;
+    } else {
+      html += `<div class="attach-chip" title="${escapeHtml(a.name)} \u2014 added by ${escapeHtml(a.addedByName)} ${fmtTime(a.addedAt)}" data-action="open-lightbox" data-url="${a.dataUrl}"><span>\u{1F4C4}</span> ${escapeHtml(a.name)}</div>`;
+    }
+  });
+  html += '</div></div>';
+  return html;
+}
+
+function stageHtml(c, s){
+  const roleInfo = ROLES.find(r=>r.id===s.role);
+  const isMine = s.role === curRole();
+  const cur = currentStage(c);
+  const isCurrent = cur && cur.chainIndex===s.chainIndex && cur.stageIndex===s.stageIndex;
+  const nodeClass = s.status==='approved' ? 'approved' : s.status==='rejected' ? 'rejected' : (isCurrent ? 'pending' : 'locked');
+  const nodeContent = s.status==='approved' ? '\u2713' : s.status==='rejected' ? '\u2715' : roleInfo.code;
+
+  // History events for this stage
+  const history = stageHistoryEvents(c, s.chainIndex, s.stageIndex);
+  let historyHtml = '';
+  if(history.length > 0){
+    historyHtml = '<div class="stage-history">';
+    history.forEach(evt => {
+      const bkp = backupLabel(evt);
+      const bkpHtml = bkp ? ' <span class="backup-label">' + escapeHtml(bkp) + '</span>' : '';
+      if(evt.type === 'created'){
+        historyHtml += `<div class="stage-history-item hist-signoff"><b>${escapeHtml(evt.actorName)} opened case</b>${bkpHtml} <span class="hist-time">${fmtTime(evt.timestamp)}</span></div>`;
+      } else if(evt.type === 'sendback'){
+        historyHtml += `<div class="stage-history-item hist-sendback"><b>${escapeHtml(evt.actorName)} sent back:</b> ${escapeHtml(evt.note||'No reason given.')}${bkpHtml} <span class="hist-time">${fmtTime(evt.timestamp)}</span></div>`;
+      } else if(evt.type === 'resubmit'){
+        let resubDetail = `<b>${escapeHtml(evt.actorName)} resubmitted</b>`;
+        if(evt.fullChainRestart) resubDetail += ' <span style="color:var(--rejected);font-weight:600;">(full chain restart)</span>';
+        if(evt.diagnosis) resubDetail += `<br><span style="color:var(--ink-soft);">Diagnosis:</span> ${escapeHtml(evt.diagnosis)}`;
+        if(evt.orderNote) resubDetail += `<br><span style="color:var(--ink-soft);">Order note:</span> ${escapeHtml(evt.orderNote)}`;
+        historyHtml += `<div class="stage-history-item hist-resubmit">${resubDetail}${bkpHtml} <span class="hist-time">${fmtTime(evt.timestamp)}</span></div>`;
+      } else if(evt.type === 'signoff'){
+        historyHtml += `<div class="stage-history-item hist-signoff"><b>${escapeHtml(evt.actorName)} approved</b>${evt.note ? ': ' + escapeHtml(evt.note) : ''}${bkpHtml} <span class="hist-time">${fmtTime(evt.timestamp)}</span></div>`;
+      }
+    });
+    historyHtml += '</div>';
+  }
+
+  // Check for rule_warning_overridden events at this stage
+  const overrides = c.events.filter(e => e.type === 'rule_warning_overridden' && e.chainLine === s.line && e.stageIndex === s.stageIndex);
+  if(overrides.length > 0){
+    if(!historyHtml) historyHtml = '<div class="stage-history">';
+    else historyHtml = historyHtml.slice(0, -6); // remove closing </div>
+    overrides.forEach(evt => {
+      historyHtml += `<div class="stage-history-item hist-warning"><b>${escapeHtml(evt.actorName)} override:</b> ${escapeHtml(evt.note)} <span class="hist-time">${fmtTime(evt.timestamp)}</span></div>`;
+    });
+    historyHtml += '</div>';
+  }
+
+  let right = '';
+  if(s.status === 'approved'){
+    right = `
+      <div class="stamp">
+        <span class="initials">${escapeHtml(s.by)}</span>
+        <span class="word">Signed off</span>
+        <span class="person-name" title="${escapeHtml(s.byName||'')}">${escapeHtml(s.byName||'')}${s.isBackup ? ' (bkp)' : ''}</span>
+      </div>`;
+  }
+
+  let noteHtml = '';
+  if(s.status==='approved' && s.note){
+    noteHtml = `<div class="stage-note">${escapeHtml(s.note)}</div>`;
+  }
+  if(s.status==='rejected'){
+    noteHtml = `<div class="stage-note reject-note"><b>${escapeHtml(s.byName||s.by)} sent this back:</b> ${escapeHtml(s.note||'No reason given.')}</div>`;
+  }
+
+  // Wound-photo warning for head nurse
+  const isWound = currentIsWoundRelated(c);
+  const noPhotos = caseImageCount(c) === 0;
+  const showWoundWarning = isWound && noPhotos && s.role === 'head_nurse' && isCurrent && s.status === 'pending' && isMine;
+
+  const user = curUser();
+  let actionHtml = '';
+  if(isCurrent && s.status==='pending'){
+    if(isMine){
+      const prefillNote = showWoundWarning ? 'Wound photos missing from order \u2014 please attach and resubmit.' : '';
+      actionHtml = `
+        <div class="action-box">
+          ${showWoundWarning ? '<div class="wound-warning">SOP 5.1: This wound referral has no photos attached. Policy requires send-back unless your clinical judgment overrides.</div>' : ''}
+          <div class="prompt">Acting as ${escapeHtml(user.name)} (${roleInfo.title})${user.isBackup ? ' <span class="backup-label">\u2014 backup</span>' : ''}</div>
+          <textarea placeholder="Add a note (optional for approval, required for rejection)" data-note-for="${c.id}:${s.chainIndex}:${s.stageIndex}">${prefillNote}</textarea>
+          <div class="field-error" data-sendback-err="${c.id}:${s.chainIndex}:${s.stageIndex}">A note is required when sending back.</div>
+          <div class="action-row">
+            <button class="btn btn-approve" data-action="approve" data-id="${c.id}" data-ci="${s.chainIndex}" data-si="${s.stageIndex}">Approve &amp; sign</button>
+            <button class="btn btn-reject" data-action="reject" data-id="${c.id}" data-ci="${s.chainIndex}" data-si="${s.stageIndex}">Send back</button>
+          </div>
+        </div>`;
+    } else {
+      actionHtml = `<div class="waiting-note">Waiting on the ${roleInfo.title} to review.</div>`;
+    }
+  }
+  if(s.status==='rejected' && s.role !== 'doctor'){
+    if(curRole()==='doctor'){
+      actionHtml = `<div class="action-row" style="margin-top:8px;"><button class="btn btn-approve" data-action="open-resubmit" data-id="${c.id}" data-ci="${s.chainIndex}" data-si="${s.stageIndex}">\u21ba Revise &amp; resubmit</button></div>`;
+    } else {
+      actionHtml = `<div class="waiting-note">Waiting on the Doctor to revise and resubmit.</div>`;
+    }
+  }
+  if(s.status==='rejected' && s.role==='doctor'){
+     actionHtml = `<div class="waiting-note">Rejected at intake \u2014 case will not proceed.</div>`;
+  }
+
+  return `
+    <div class="stage ${s.line==='wound_care'?'wc-stage':''}">
+      <div class="node ${nodeClass}">${nodeContent}</div>
+      <div class="stage-body">
+        <div class="stage-title-row">
+          <div>
+            <div class="stage-title">${s.title}</div>
+            <div class="stage-role">${roleInfo.title}</div>
+            ${s.at ? `<div class="stage-meta">${fmtTime(s.at)}</div>` : ''}
+          </div>
+          ${right}
+        </div>
+        ${historyHtml}
+        ${noteHtml}
+        ${actionHtml}
+      </div>
+    </div>`;
+}
+
+function newReferralModal(){
+  const user = curUser();
+  return `
+    <div class="modal-backdrop" data-action="backdrop">
+      <div class="modal" data-stop>
+        <div class="modal-head">
+          <div class="modal-head-row">
+            <div>
+              <h2>New referral</h2>
+              <p>Submitted by ${escapeHtml(user.name)}. This opens a home health approval chain.</p>
+            </div>
+            <button class="modal-close" data-action="close-modal" aria-label="Close">\u00d7</button>
+          </div>
+        </div>
+        <div class="modal-body">
+          <div class="field" id="nf-patient-field"><label>Patient name *</label><input type="text" id="nf-patient" placeholder="e.g. Priya Anand"><div class="field-error" id="nf-patient-err">Patient name is required.</div></div>
+          <div class="field" id="nf-diagnosis-field"><label>Diagnosis / reason for referral *</label><input type="text" id="nf-diagnosis" placeholder="e.g. Wound care following abdominal surgery"><div class="field-error" id="nf-diagnosis-err">Diagnosis is required.</div></div>
+          <div class="field" id="nf-freq-field"><label>Visit frequency *</label><input type="text" id="nf-freq" placeholder="e.g. 3x/week"><div class="field-error" id="nf-freq-err">Visit frequency is required.</div></div>
+          <div class="field field-check">
+            <input type="checkbox" id="nf-wound">
+            <label for="nf-wound">Wound-related referral</label>
+          </div>
+          <div class="field" id="nf-note-field"><label>Order note *</label><textarea id="nf-note" placeholder="Care instructions, anything head nurse should know..."></textarea><div class="field-error" id="nf-note-err">Order note is required.</div></div>
+          <div class="field">
+            <label>Attachments</label>
+            <input type="file" id="nf-files" multiple accept="image/*,.pdf" capture="environment" style="font-size:16px;font-family:'Inter';padding:8px 0;">
+            <div class="file-list" id="nf-file-preview"></div>
+          </div>
+          <div id="nf-wound-warning" class="wound-warning" style="display:none;">SOP 5.1: Wound-related referrals should include wound photographs. Consider attaching photos before submitting.</div>
+        </div>
+        <div class="modal-foot">
+          <button class="btn btn-cancel" data-action="close-modal">Cancel</button>
+          <button class="btn btn-approve" data-action="submit-referral">Submit order</button>
+        </div>
+      </div>
+    </div>`;
+}
+
+function reviseModal(){
+  const rm = state.resubmitModal;
+  const c = state.cases.find(x => x.id === rm.caseId);
+  const diag = currentDiagnosis(c);
+  const orderNote = currentOrderNote(c);
+  const isWound = currentIsWoundRelated(c);
+  const chainLine = c.chains[rm.ci].line;
+  const sendbackEvt = [...c.events].reverse().find(e =>
+    e.chainLine === chainLine && e.stageIndex === rm.si && e.type === 'sendback'
+  );
+  const sendbackReason = sendbackEvt ? sendbackEvt.note : '';
+  const senderName = sendbackEvt ? sendbackEvt.actorName : 'Reviewer';
+
+  return `
+    <div class="modal-backdrop" data-action="backdrop-resubmit">
+      <div class="modal" data-stop>
+        <div class="modal-head">
+          <div class="modal-head-row">
+            <div>
+              <h2>Revise &amp; resubmit</h2>
+              <p>Editing case ${escapeHtml(c.id)} for ${escapeHtml(c.patient)}.</p>
+            </div>
+            <button class="modal-close" data-action="close-resubmit" aria-label="Close">\u00d7</button>
+          </div>
+          ${sendbackReason ? `<div class="stage-note reject-note" style="margin-bottom:4px;"><b>${escapeHtml(senderName)} sent this back:</b> ${escapeHtml(sendbackReason)}</div>` : ''}
+        </div>
+        <div class="modal-body">
+          <div class="field" id="rs-diagnosis-field"><label>Diagnosis / reason for referral *</label><input type="text" id="rs-diagnosis" value="${escapeHtml(diag)}"><div class="field-error" id="rs-diagnosis-err">Diagnosis is required.</div></div>
+          <div class="field" id="rs-freq-field"><label>Visit frequency *</label><input type="text" id="rs-freq" value="${escapeHtml(currentVisitFrequency(c))}"><div class="field-error" id="rs-freq-err">Visit frequency is required.</div></div>
+          <div class="field field-check">
+            <input type="checkbox" id="rs-wound" ${isWound ? 'checked' : ''}>
+            <label for="rs-wound">Wound-related referral</label>
+          </div>
+          <div class="field"><label>Order note</label><textarea id="rs-note">${escapeHtml(orderNote)}</textarea></div>
+          <div class="field">
+            <label>Add attachments</label>
+            <input type="file" id="rs-files" multiple accept="image/*,.pdf" capture="environment" style="font-size:16px;font-family:'Inter';padding:8px 0;">
+            <div class="file-list" id="rs-file-preview"></div>
+            ${c.attachments.length > 0 ? `<div style="font-size:11.5px;color:var(--ink-soft);margin-top:4px;">${c.attachments.length} existing attachment${c.attachments.length!==1?'s':''} on this case</div>` : ''}
+          </div>
+          <div id="rs-wound-warning" class="wound-warning" style="display:none;">SOP 5.1: Wound-related referrals should include wound photographs.</div>
+          <div class="field field-check">
+            <input type="checkbox" id="rs-clinical">
+            <label for="rs-clinical">This revision changes clinical content <span style="font-weight:400;color:var(--ink-soft);">(restarts full approval chain)</span></label>
+          </div>
+        </div>
+        <div class="modal-foot">
+          <button class="btn btn-cancel" data-action="close-resubmit">Cancel</button>
+          <button class="btn btn-approve" data-action="submit-resubmit">Resubmit</button>
+        </div>
+      </div>
+    </div>`;
+}
+
+function lightboxModal(){
+  const url = state.lightboxUrl;
+  const isPdf = url.startsWith('data:application/pdf');
+  return `
+    <div class="lightbox" data-action="close-lightbox">
+      ${isPdf
+        ? `<iframe src="${url}"></iframe>`
+        : `<img src="${url}" onclick="event.stopPropagation()">`}
+    </div>`;
+}
+
+function escapeHtml(str){
+  const d = document.createElement('div'); d.textContent = str; return d.innerHTML;
+}
+
+function auditTrailHtml(c){
+  let html = '<div style="margin-top:28px;border-top:1px solid var(--hairline);padding-top:16px;">';
+  html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">';
+  html += '<div style="font-size:11px;text-transform:uppercase;letter-spacing:0.06em;color:var(--ink-soft);font-weight:700;">Full event history</div>';
+  html += '<div style="display:flex;gap:6px;">';
+  html += '<button class="btn-export" data-action="export-audit" data-id="' + c.id + '">Export CSV</button>';
+  html += '<button class="btn-export" data-action="export-audit-json" data-id="' + c.id + '">Export JSON</button>';
+  html += '</div>';
+  html += '</div>';
+  c.events.forEach(evt => {
+    let cls = 'hist-signoff';
+    if(evt.type === 'sendback') cls = 'hist-sendback';
+    else if(evt.type === 'resubmit') cls = 'hist-resubmit';
+    else if(evt.type === 'rule_warning_overridden') cls = 'hist-warning';
+    else if(evt.type === 'attachment_added') cls = 'hist-signoff';
+    let label = '';
+    switch(evt.type){
+      case 'created': label = 'Case created'; break;
+      case 'signoff': label = 'Signed off'; break;
+      case 'sendback': label = 'Sent back'; break;
+      case 'resubmit': label = 'Resubmitted' + (evt.fullChainRestart ? ' (full chain restart)' : ''); break;
+      case 'escalated': label = 'Escalated to wound care'; break;
+      case 'attachment_added': label = 'Attachment added: ' + escapeHtml(evt.attachmentName || ''); break;
+      case 'rule_warning_overridden': label = 'Rule override (' + escapeHtml(evt.rule || '') + ')'; break;
+      case 'visit_started': label = 'Visit started'; break;
+      case 'visit_completed': label = 'Visit completed (' + (evt.durationMinutes||0) + ' min)'; break;
+      case 'visit_amended': label = 'Visit amended'; break;
+    }
+    let stageName = '';
+    if(evt.stageIndex !== null && evt.stageIndex !== undefined){
+      const chain = c.chains.find(ch => ch.line === evt.chainLine);
+      if(chain && chain.stages[evt.stageIndex]){
+        const stageRole = ROLES.find(r => r.id === chain.stages[evt.stageIndex].role);
+        if(stageRole) stageName = ' \u2014 ' + stageRole.title;
+        if(evt.chainLine === 'wound_care') stageName += ' (wound care)';
+      }
+    }
+    const bkp = backupLabel(evt);
+    const bkpHtml = bkp ? ' <span class="backup-label">' + escapeHtml(bkp) + '</span>' : '';
+    html += `<div class="stage-history-item ${cls}"><b>${escapeHtml(evt.actorName)} (${escapeHtml(evt.actorInitials)}) \u00b7 ${label}${stageName}</b>${bkpHtml}`;
+    if(evt.note) html += `: ${escapeHtml(evt.note)}`;
+    if(evt.type === 'resubmit'){
+      if(evt.diagnosis) html += `<br><span style="font-size:11px;color:var(--ink-soft);">Diagnosis: ${escapeHtml(evt.diagnosis)}</span>`;
+      if(evt.orderNote) html += `<br><span style="font-size:11px;color:var(--ink-soft);">Order note: ${escapeHtml(evt.orderNote)}</span>`;
+    }
+    html += ` <span class="hist-time">${fmtTime(evt.timestamp)}</span></div>`;
+  });
+  html += '</div>';
+  return html;
+}
+
+function attachHandlers(){
+  document.querySelectorAll('[data-action]').forEach(el => {
+    // Mobile person select
+    if(el.tagName === 'SELECT' && el.dataset.action === 'switch-user-select'){
+      el.addEventListener('change', () => {
+        state.currentUserId = el.value;
+        state.notifOpen = false;
+        render();
+      });
+      return;
+    }
+    el.addEventListener('click', (e) => {
+      if(el.dataset.action==='backdrop' && e.target !== el) return;
+      if(el.dataset.action==='backdrop-resubmit' && e.target !== el) return;
+      const action = el.dataset.action;
+      if(action==='switch-user'){ state.currentUserId = el.dataset.uid; state.notifOpen = false; render(); }
+      else if(action==='select-case'){
+        state.selectedCaseId = el.dataset.id;
+        state.mobileView = 'detail';
+        render();
+      }
+      else if(action==='back-to-list'){ state.mobileView = 'list'; render(); }
+      else if(action==='filter'){ state.showOnlyMine = el.dataset.val==='mine'; render(); }
+      else if(action==='open-modal'){ if(curRole()==='doctor'){ state.showModal = true; render(); } }
+      else if(action==='close-modal' || action==='backdrop'){ state.showModal = false; render(); }
+      else if(action==='submit-referral'){ submitReferral(); }
+      else if(action==='approve'){ actOnStage(el.dataset.id, +el.dataset.ci, +el.dataset.si, 'signoff'); }
+      else if(action==='reject'){ actOnStage(el.dataset.id, +el.dataset.ci, +el.dataset.si, 'sendback'); }
+      else if(action==='open-resubmit'){ state.resubmitModal = {caseId: el.dataset.id, ci: +el.dataset.ci, si: +el.dataset.si}; render(); }
+      else if(action==='close-resubmit' || action==='backdrop-resubmit'){ state.resubmitModal = null; render(); }
+      else if(action==='submit-resubmit'){ submitResubmit(); }
+      else if(action==='escalate'){ escalateCase(el.dataset.id); }
+      else if(action==='toggle-notifs'){ state.notifOpen = !state.notifOpen; render(); }
+      else if(action==='close-notifs'){ state.notifOpen = false; render(); }
+      else if(action==='mark-all-read'){
+        readAt[state.currentUserId] = now();
+        state.notifOpen = false;
+        saveState();
+        render();
+      }
+      else if(action==='notif-click'){
+        // Mark this and all older notifications as read
+        const nts = parseInt(el.dataset.nts, 10);
+        const clickedTime = new Date(nts);
+        const ra = readAt[state.currentUserId] || new Date(0);
+        if(clickedTime > ra){ readAt[state.currentUserId] = clickedTime; saveState(); }
+        state.selectedCaseId = el.dataset.case;
+        state.mobileView = 'detail';
+        state.notifOpen = false;
+        render();
+      }
+      else if(action==='reset-demo'){ if(confirm('Reset all data to demo defaults?')) resetState(); }
+      else if(action==='export-audit'){ exportAuditCsv(el.dataset.id); }
+      else if(action==='export-audit-json'){ exportAuditJson(el.dataset.id); }
+      else if(action==='start-visit'){ startVisit(el.dataset.id); }
+      else if(action==='complete-visit'){ completeVisit(el.dataset.id, el.dataset.vid); }
+      else if(action==='toggle-amend'){ state.amendingVisitId = state.amendingVisitId === el.dataset.vid ? null : el.dataset.vid; render(); }
+      else if(action==='cancel-amend'){ state.amendingVisitId = null; render(); }
+      else if(action==='submit-amend'){ submitAmendment(el.dataset.id, el.dataset.vid); }
+      else if(action==='open-lightbox'){ state.lightboxUrl = el.dataset.url; render(); }
+      else if(action==='close-lightbox'){ state.lightboxUrl = null; render(); }
+    });
+  });
+
+  // --- New referral modal: wound auto-suggest + file preview + wound warning ---
+  setupModalWoundWarning('nf-diagnosis', 'nf-wound', 'nf-files', 'nf-file-preview', 'nf-wound-warning', 0);
+
+  // --- Revise modal: file preview + wound warning ---
+  setupModalWoundWarning('rs-diagnosis', 'rs-wound', 'rs-files', 'rs-file-preview', 'rs-wound-warning',
+    state.resubmitModal ? (state.cases.find(x=>x.id===state.resubmitModal.caseId)||{attachments:[]}).attachments.filter(a=>a.type.startsWith('image/')).length : 0
+  );
+}
+
+function setupModalWoundWarning(diagId, woundId, filesId, previewId, warningId, existingImageCount){
+  const diagInput = document.getElementById(diagId);
+  const woundCheck = document.getElementById(woundId);
+  const fileInput = document.getElementById(filesId);
+  const preview = document.getElementById(previewId);
+  const warning = document.getElementById(warningId);
+  if(!diagInput || !woundCheck || !warning) return;
+
+  function updateWarning(){
+    const hasNewImages = fileInput && fileInput.files && Array.from(fileInput.files).some(f => f.type.startsWith('image/'));
+    warning.style.display = (woundCheck.checked && !hasNewImages && existingImageCount === 0) ? 'block' : 'none';
+  }
+
+  let userChangedWound = false;
+  diagInput.addEventListener('input', () => {
+    if(!userChangedWound){ woundCheck.checked = isWoundDiagnosis(diagInput.value); }
+    updateWarning();
+  });
+  woundCheck.addEventListener('change', () => { userChangedWound = true; updateWarning(); });
+  if(fileInput){
+    fileInput.addEventListener('change', () => {
+      if(preview){
+        preview.innerHTML = Array.from(fileInput.files).map(f => `<span class="file-tag">${escapeHtml(f.name)}</span>`).join('');
+      }
+      updateWarning();
+    });
+  }
+  updateWarning();
+}
+
+/* ---------- Export ---------- */
+
+function exportAuditCsv(caseId){
+  const c = state.cases.find(x => x.id === caseId);
+  if(!c) return;
+
+  function csvCell(val){
+    const s = String(val == null ? '' : val);
+    if(s.includes(',') || s.includes('"') || s.includes('\n')) return '"' + s.replace(/"/g, '""') + '"';
+    return s;
+  }
+
+  const timing = caseTiming(c);
+  const headers = ['Timestamp','Event','Person','Initials','Role','Backup','Stage','Business Line','Note','Details'];
+  const rows = [
+    '# Case ' + c.id + ' - ' + c.patient + (timing ? ' - Timing: ' + timing.level + ' (' + fmtElapsed(timing.elapsedHours) + ' elapsed)' : ''),
+    headers.join(','),
+  ];
+
+  c.events.forEach(evt => {
+    const ts = evt.timestamp ? evt.timestamp.toISOString() : '';
+    let label = evt.type;
+    switch(evt.type){
+      case 'created': label = 'Case created'; break;
+      case 'signoff': label = 'Signed off'; break;
+      case 'sendback': label = 'Sent back'; break;
+      case 'resubmit': label = 'Resubmitted'; break;
+      case 'escalated': label = 'Escalated to wound care'; break;
+      case 'attachment_added': label = 'Attachment added'; break;
+      case 'rule_warning_overridden': label = 'Rule override'; break;
+      case 'visit_started': label = 'Visit started'; break;
+      case 'visit_completed': label = 'Visit completed (' + (evt.durationMinutes||0) + ' min)'; break;
+      case 'visit_amended': label = 'Visit amended'; break;
+    }
+    let stageName = '';
+    if(evt.stageIndex !== null && evt.stageIndex !== undefined){
+      const chain = c.chains.find(ch => ch.line === evt.chainLine);
+      if(chain && chain.stages[evt.stageIndex]){
+        const stageRole = ROLES.find(r => r.id === chain.stages[evt.stageIndex].role);
+        if(stageRole) stageName = stageRole.title;
+      }
+    }
+    const roleName = (ROLES.find(r => r.id === evt.role) || {}).title || evt.role || '';
+    const bkp = evt.isBackup ? 'Yes' : '';
+    const line = evt.chainLine === 'wound_care' ? 'Wound Care' : (evt.chainLine === 'home_health' ? 'Home Health' : '');
+    let details = '';
+    if(evt.type === 'resubmit'){
+      const parts = [];
+      if(evt.fullChainRestart) parts.push('Full chain restart');
+      if(evt.diagnosis) parts.push('Diagnosis: ' + evt.diagnosis);
+      if(evt.visitFrequency) parts.push('Frequency: ' + evt.visitFrequency);
+      if(evt.orderNote) parts.push('Order note: ' + evt.orderNote);
+      details = parts.join('; ');
+    }
+    if(evt.type === 'attachment_added') details = evt.attachmentName || '';
+    if(evt.type === 'rule_warning_overridden') details = evt.rule || '';
+    if(evt.type === 'visit_completed') details = 'Duration: ' + (evt.durationMinutes||0) + ' min; Notes: ' + (evt.notes||'');
+    if(evt.type === 'visit_amended') details = 'Amendment: ' + (evt.note||'');
+
+    rows.push([ts, label, evt.actorName, evt.actorInitials, roleName, bkp, stageName, line, evt.note || '', details].map(csvCell).join(','));
+  });
+
+  const csv = rows.join('\n');
+  const blob = new Blob([csv], {type: 'text/csv;charset=utf-8;'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = c.id + '_' + c.patient.replace(/\s+/g, '_') + '_audit.csv';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+function exportAuditJson(caseId){
+  const c = state.cases.find(x => x.id === caseId);
+  if(!c) return;
+  const payload = {
+    caseId: c.id,
+    patient: c.patient,
+    diagnosis: currentDiagnosis(c),
+    visitFrequency: currentVisitFrequency(c),
+    businessLines: c.chains.map(ch => ch.line),
+    status: caseStatusLabel(c),
+    createdAt: c.createdAt.toISOString(),
+    exportedAt: now().toISOString(),
+    events: c.events.map(evt => {
+      const out = {};
+      for(const k in evt){
+        out[k] = evt[k] instanceof Date ? evt[k].toISOString() : evt[k];
+      }
+      return out;
+    }),
+  };
+  const json = JSON.stringify(payload, null, 2);
+  const blob = new Blob([json], {type: 'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = c.id + '_' + c.patient.replace(/\s+/g, '_') + '_audit.json';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+/* ---------- Actions (append-only) ---------- */
+
+function actOnStage(caseId, ci, si, type){
+  const c = state.cases.find(x=>x.id===caseId);
+  const noteEl = document.querySelector(`[data-note-for="${caseId}:${ci}:${si}"]`);
+  const note = noteEl ? noteEl.value.trim() : '';
+  if(type==='sendback' && !note){
+    const errEl = document.querySelector(`[data-sendback-err="${caseId}:${ci}:${si}"]`);
+    if(errEl) errEl.classList.add('visible');
+    if(noteEl){ noteEl.parentElement.classList.add('has-error'); }
+    return;
+  }
+  const actor = actorFields(state.currentUserId);
+
+  // SOP 5.1: log rule override if head nurse approves wound case without photos
+  if(type === 'signoff' && curRole() === 'head_nurse'){
+    const isWound = currentIsWoundRelated(c);
+    const noPhotos = caseImageCount(c) === 0;
+    if(isWound && noPhotos){
+      appendEvent(c, {
+        type: 'rule_warning_overridden',
+        ...actor,
+        note: 'Approved wound referral without photos (SOP 5.1 override)',
+        chainLine: c.chains[ci].line,
+        stageIndex: si,
+        rule: 'SOP_5_1_wound_photos',
+      });
+    }
+  }
+
+  appendEvent(c, {
+    type,
+    ...actor,
+    note,
+    chainLine: c.chains[ci].line,
+    stageIndex: si,
+  });
+  render();
+}
+
+async function submitResubmit(){
+  const rm = state.resubmitModal;
+  if(!rm) return;
+  const c = state.cases.find(x => x.id === rm.caseId);
+  const diagnosis = document.getElementById('rs-diagnosis').value.trim();
+  const visitFrequency = document.getElementById('rs-freq').value.trim();
+  const orderNote = document.getElementById('rs-note').value.trim();
+  const fullChainRestart = document.getElementById('rs-clinical').checked;
+  const isWound = document.getElementById('rs-wound').checked;
+
+  // Inline validation
+  let valid = true;
+  [{id:'rs-diagnosis-field', err:'rs-diagnosis-err', val:diagnosis},
+   {id:'rs-freq-field', err:'rs-freq-err', val:visitFrequency}].forEach(f => {
+    const field = document.getElementById(f.id);
+    const errEl = document.getElementById(f.err);
+    if(!f.val){ if(field) field.classList.add('has-error'); if(errEl) errEl.classList.add('visible'); valid = false; }
+    else { if(field) field.classList.remove('has-error'); if(errEl) errEl.classList.remove('visible'); }
+  });
+  if(!valid) return;
+
+  const actor = actorFields(state.currentUserId);
+  const fileInput = document.getElementById('rs-files');
+  const files = await readFiles(fileInput);
+  const ts = now();
+
+  files.forEach(f => {
+    c.attachments.push({...f, addedByName:actor.actorName, addedByInitials:actor.actorInitials, addedAt:ts});
+    appendEvent(c, {type:'attachment_added', ...actor, timestamp:ts, note:'', chainLine:c.chains[rm.ci].line, stageIndex:rm.si, attachmentId:f.id, attachmentName:f.name});
+  });
+
+  appendEvent(c, {
+    type: 'resubmit',
+    ...actor,
+    note: '',
+    chainLine: c.chains[rm.ci].line,
+    stageIndex: rm.si,
+    diagnosis,
+    visitFrequency,
+    orderNote,
+    fullChainRestart,
+    isWoundRelated: isWound,
+  });
+  state.resubmitModal = null;
+  render();
+}
+
+function escalateCase(caseId){
+  const c = state.cases.find(x=>x.id===caseId);
+  if(c.chains.some(ch=>ch.line==='wound_care')) return;
+  const actor = actorFields(state.currentUserId);
+  appendEvent(c, {
+    type: 'escalated',
+    ...actor,
+    note: '',
+    chainLine: 'wound_care',
+    stageIndex: null,
+  });
+  c.chains.push({ line:'wound_care', stages: stageTemplate('wound_care') });
+  saveState();
+  render();
+}
+
+async function submitReferral(){
+  const patient = document.getElementById('nf-patient').value.trim();
+  const diagnosis = document.getElementById('nf-diagnosis').value.trim();
+  const visitFrequency = document.getElementById('nf-freq').value.trim();
+  const note = document.getElementById('nf-note').value.trim();
+  const isWound = document.getElementById('nf-wound').checked;
+
+  // Inline validation
+  let valid = true;
+  [{id:'nf-patient-field', err:'nf-patient-err', val:patient},
+   {id:'nf-diagnosis-field', err:'nf-diagnosis-err', val:diagnosis},
+   {id:'nf-freq-field', err:'nf-freq-err', val:visitFrequency},
+   {id:'nf-note-field', err:'nf-note-err', val:note}].forEach(f => {
+    const field = document.getElementById(f.id);
+    const errEl = document.getElementById(f.err);
+    if(!f.val){ if(field) field.classList.add('has-error'); if(errEl) errEl.classList.add('visible'); valid = false; }
+    else { if(field) field.classList.remove('has-error'); if(errEl) errEl.classList.remove('visible'); }
+  });
+  if(!valid) return;
+
+  const actor = actorFields(state.currentUserId);
+  const fileInput = document.getElementById('nf-files');
+  const files = await readFiles(fileInput);
+  const ts = now();
+
+  const c = { id: uid(), patient, diagnosis, createdAt: ts, chains:[{line:'home_health', stages: stageTemplate('home_health')}], events:[], attachments:[] };
+
+  files.forEach(f => {
+    c.attachments.push({...f, addedByName:actor.actorName, addedByInitials:actor.actorInitials, addedAt:ts});
+    appendEvent(c, {type:'attachment_added', ...actor, timestamp:ts, note:'', chainLine:'home_health', stageIndex:0, attachmentId:f.id, attachmentName:f.name});
+  });
+
+  appendEvent(c, {type:'created', ...actor, timestamp:ts, note:'', chainLine:'home_health', stageIndex:0, diagnosis, visitFrequency, orderNote:note, isWoundRelated:isWound});
+  appendEvent(c, {type:'signoff', ...actor, timestamp:ts, note, chainLine:'home_health', stageIndex:0});
+
+  state.cases.unshift(c);
+  state.selectedCaseId = c.id;
+  state.showModal = false;
+  state.mobileView = 'detail';
+  saveState();
+  render();
+}
+
+/* ---------- Visit actions (SOP §7) ---------- */
+
+function startVisit(caseId){
+  const c = state.cases.find(x => x.id === caseId);
+  if(!c || !isCaseActive(c)) return;
+  const user = curUser();
+  // Gate: cannot start if open visit exists anywhere
+  const blocked = openVisitAnywhere(user.id);
+  if(blocked) return;
+  const visitId = 'V' + Math.random().toString(36).slice(2,7).toUpperCase();
+  appendEvent(c, {
+    type: 'visit_started',
+    ...actorFields(state.currentUserId),
+    visitId,
+    note: '',
+    chainLine: c.chains[c.chains.length - 1].line,
+    stageIndex: null,
+  });
+  render();
+}
+
+function completeVisit(caseId, visitId){
+  const c = state.cases.find(x => x.id === caseId);
+  if(!c) return;
+  const notesEl = document.getElementById('visit-notes');
+  const notes = notesEl ? notesEl.value.trim() : '';
+  if(!notes){
+    const errEl = document.getElementById('visit-notes-err');
+    if(errEl) errEl.classList.add('visible');
+    if(notesEl) notesEl.parentElement.classList.add('has-error');
+    return;
+  }
+  const startEvt = c.events.find(e => e.type === 'visit_started' && e.visitId === visitId);
+  if(!startEvt) return;
+  const clockIn = startEvt.timestamp;
+  const clockOut = now();
+  const durationMinutes = Math.round((clockOut - clockIn) / 60000);
+  appendEvent(c, {
+    type: 'visit_completed',
+    ...actorFields(state.currentUserId),
+    visitId,
+    clockIn,
+    clockOut,
+    durationMinutes,
+    notes,
+    note: 'Visit completed (' + durationMinutes + ' min)',
+    chainLine: c.chains[c.chains.length - 1].line,
+    stageIndex: null,
+  });
+  render();
+}
+
+function submitAmendment(caseId, visitId){
+  const c = state.cases.find(x => x.id === caseId);
+  if(!c) return;
+  const notesEl = document.getElementById('amend-notes');
+  const note = notesEl ? notesEl.value.trim() : '';
+  if(!note){
+    const errEl = document.getElementById('amend-notes-err');
+    if(errEl) errEl.classList.add('visible');
+    if(notesEl) notesEl.parentElement.classList.add('has-error');
+    return;
+  }
+  appendEvent(c, {
+    type: 'visit_amended',
+    ...actorFields(state.currentUserId),
+    visitId,
+    note,
+    chainLine: c.chains[c.chains.length - 1].line,
+    stageIndex: null,
+  });
+  state.amendingVisitId = null;
+  render();
+}
+
+if(!loadState()) seedCases();
+render();
+</script>
+</body>
+</html>
