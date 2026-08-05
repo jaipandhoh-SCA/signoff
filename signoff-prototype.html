@@ -611,6 +611,63 @@
     .amend-form textarea{ font-size:13px; }
   }
 
+  /* ---------- Nurse input paths ---------- */
+  .nurse-inputs{
+    display:flex; gap:8px; margin-bottom:10px; flex-wrap:wrap; align-items:stretch;
+  }
+  .nurse-inputs .btn-attach-file{
+    display:inline-flex; align-items:center; justify-content:center; gap:6px;
+    background:var(--surface); border:1.5px solid var(--hairline); border-radius:8px;
+    padding:10px 14px; font-family:'Inter',sans-serif; font-size:13px; font-weight:600;
+    color:var(--ink); cursor:pointer; min-height:44px; flex-shrink:0;
+  }
+  @media (hover:hover){
+    .nurse-inputs .btn-attach-file:hover{ border-color:var(--brand); color:var(--brand); }
+  }
+  .nurse-inputs .btn-attach-file.has-file{ border-color:var(--approved); color:var(--approved); }
+  .nurse-inputs input[type="file"]{ display:none; }
+
+  .btn-mic{
+    display:inline-flex; align-items:center; justify-content:center; gap:6px;
+    background:var(--surface); border:1.5px solid var(--hairline); border-radius:8px;
+    padding:10px 14px; font-family:'Inter',sans-serif; font-size:13px; font-weight:600;
+    color:var(--ink); cursor:pointer; min-height:44px; flex-shrink:0;
+    transition:all .15s;
+  }
+  @media (hover:hover){
+    .btn-mic:hover{ border-color:var(--brand); }
+  }
+  .btn-mic .mic-icon{ font-size:18px; line-height:1; }
+  .btn-mic.recording{
+    background:var(--rejected-soft); border-color:var(--rejected); color:var(--rejected);
+    animation:mic-pulse 1.2s ease-in-out infinite;
+  }
+  @keyframes mic-pulse{
+    0%, 100%{ box-shadow:0 0 0 0 rgba(162,73,54,0.3); }
+    50%{ box-shadow:0 0 0 8px rgba(162,73,54,0); }
+  }
+  .mic-status{
+    font-size:12px; color:var(--rejected); font-weight:600; display:flex;
+    align-items:center; gap:6px; margin-bottom:6px;
+  }
+  .mic-status .pulse-dot{
+    width:8px; height:8px; border-radius:50%; background:var(--rejected);
+    animation:mic-pulse-dot 1s ease-in-out infinite;
+  }
+  @keyframes mic-pulse-dot{
+    0%, 100%{ opacity:1; }
+    50%{ opacity:0.3; }
+  }
+  .mic-unavailable{
+    font-size:12px; color:var(--ink-soft); font-style:italic; margin-bottom:6px;
+  }
+  .nurse-req-msg{
+    font-size:12px; color:var(--pending); font-weight:600; margin-bottom:8px;
+  }
+  .btn:disabled{
+    opacity:0.4; cursor:not-allowed;
+  }
+
   /* ---------- Footer ---------- */
   .app-footer{
     margin-top:32px; padding:16px; text-align:center;
@@ -1011,6 +1068,83 @@ function readFiles(fileInput){
       reader.readAsDataURL(file);
     });
   }));
+}
+
+/* ---------- Speech recognition ---------- */
+
+const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+const speechSupported = !!SpeechRecognition;
+let activeRecognition = null;
+// Track note sources: keyed by element id
+const noteSources = {};
+
+function startDictation(textareaId){
+  if(!speechSupported || activeRecognition) return;
+  const ta = document.getElementById(textareaId);
+  if(!ta) return;
+  const recognition = new SpeechRecognition();
+  recognition.lang = 'en-US';
+  recognition.continuous = true;
+  recognition.interimResults = true;
+  const baseText = ta.value;
+  let finalTranscript = '';
+  recognition.onresult = (e) => {
+    let interim = '';
+    for(let i = e.resultIndex; i < e.results.length; i++){
+      if(e.results[i].isFinal) finalTranscript += e.results[i][0].transcript;
+      else interim += e.results[i][0].transcript;
+    }
+    ta.value = baseText + (baseText && finalTranscript ? ' ' : '') + finalTranscript + (interim ? ' ' + interim : '');
+    if(!noteSources[textareaId]) noteSources[textareaId] = [];
+    if(!noteSources[textareaId].includes('dictated')) noteSources[textareaId].push('dictated');
+    // Trigger input event for any listeners
+    ta.dispatchEvent(new Event('input'));
+  };
+  recognition.onerror = (e) => {
+    stopDictation();
+    if(e.error === 'not-allowed'){
+      state._micDenied = true;
+      render();
+    }
+  };
+  recognition.onend = () => { stopDictation(); render(); };
+  activeRecognition = {recognition, textareaId};
+  recognition.start();
+  render();
+}
+
+function stopDictation(){
+  if(activeRecognition){
+    try { activeRecognition.recognition.stop(); } catch(e){}
+    activeRecognition = null;
+  }
+}
+
+function isRecording(textareaId){
+  return activeRecognition && activeRecognition.textareaId === textareaId;
+}
+
+// Track nurse file attachments per signoff context
+const nurseSignoffFiles = {};
+
+function getNurseNoteSources(textareaId){
+  const sources = [];
+  const ta = document.getElementById(textareaId);
+  const hasText = ta && ta.value.trim().length > 0;
+  const nss = noteSources[textareaId] || [];
+  if(hasText){
+    if(nss.includes('dictated')) sources.push('dictated');
+    else sources.push('typed');
+  }
+  if(nurseSignoffFiles[textareaId] && nurseSignoffFiles[textareaId].length > 0) sources.push('file');
+  return sources;
+}
+
+function nurseInputSatisfied(textareaId){
+  const ta = document.getElementById(textareaId);
+  const hasText = ta && ta.value.trim().length > 0;
+  const hasFile = nurseSignoffFiles[textareaId] && nurseSignoffFiles[textareaId].length > 0;
+  return hasText || hasFile;
 }
 
 /* ---------- Visit helpers (SOP §7) ---------- */
@@ -1474,15 +1608,33 @@ function visitsSectionHtml(c){
       const stalledHtml = vt && vt.level === 'stalled'
         ? `<div class="wound-warning" style="margin-bottom:8px;">This visit has been open for ${fmtElapsed(vt.elapsedHours)}. Please submit notes promptly (SOP \u00a77.4).</div>`
         : '';
+      const vMicDenied = state._micDenied;
+      const vRecording = isRecording('visit-notes');
+      const vFiles = nurseSignoffFiles['visit-notes'] || [];
       actionHtml = `
         <div class="visit-form">
           ${stalledHtml}
           <div style="font-size:12px;color:var(--ink-soft);margin-bottom:6px;font-weight:600;">
             Clock-in: ${fmtTime(ov.timestamp)} \u00b7 ${fmtElapsed((now() - ov.timestamp) / 3600000)} elapsed
           </div>
-          <textarea id="visit-notes" placeholder="Visit notes (required) \u2014 patient condition, care delivered, concerns..."></textarea>
-          <div class="field-error" id="visit-notes-err">Visit notes are required.</div>
-          <button class="btn btn-approve" data-action="complete-visit" data-id="${c.id}" data-vid="${ov.visitId}">Complete visit</button>
+          <div class="nurse-req-msg" id="nurse-req-visit-notes">Visit notes, a file, or dictation required to complete.</div>
+          ${vRecording ? '<div class="mic-status"><span class="pulse-dot"></span> Listening\u2026 tap mic to stop</div>' : ''}
+          <textarea id="visit-notes" placeholder="Visit notes \u2014 patient condition, care delivered, concerns..." data-nurse="1"></textarea>
+          <div class="field-error" id="visit-notes-err">Visit notes or a file attachment required.</div>
+          <div class="nurse-inputs">
+            <label class="btn-attach-file ${vFiles.length ? 'has-file' : ''}" data-nurse-attach="visit-notes">
+              <span>\u{1F4CE}</span> ${vFiles.length ? vFiles.length + ' file' + (vFiles.length > 1 ? 's' : '') : 'Attach file'}
+              <input type="file" id="nurse-file-visit-notes" multiple accept="image/*,.pdf" capture="environment" data-action="nurse-file-change" data-ta="visit-notes">
+            </label>
+            ${speechSupported && !vMicDenied
+              ? `<button class="btn-mic ${vRecording ? 'recording' : ''}" data-action="${vRecording ? 'stop-dictation' : 'start-dictation'}" data-ta="visit-notes">
+                  <span class="mic-icon">\u{1F3A4}</span> ${vRecording ? 'Stop' : 'Dictate'}
+                </button>`
+              : (vMicDenied
+                ? '<div class="mic-unavailable">Mic permission denied \u2014 type or attach instead</div>'
+                : '<div class="mic-unavailable">Dictation unavailable \u2014 type or attach instead</div>')}
+          </div>
+          <button class="btn btn-approve" data-action="complete-visit" data-id="${c.id}" data-vid="${ov.visitId}" data-nurse-ta="visit-notes" id="approve-btn-visit-notes" disabled>Complete visit</button>
         </div>`;
     } else if(blockedOnOther){
       const blockedCase = state.cases.find(x => x.id === blockedElsewhere.caseId);
@@ -1649,21 +1801,54 @@ function stageHtml(c, s){
   const showWoundWarning = isWound && noPhotos && s.role === 'head_nurse' && isCurrent && s.status === 'pending' && isMine;
 
   const user = curUser();
+  const isNurseStage = s.role === 'nurse';
   let actionHtml = '';
   if(isCurrent && s.status==='pending'){
     if(isMine){
       const prefillNote = showWoundWarning ? 'Wound photos missing from order \u2014 please attach and resubmit.' : '';
-      actionHtml = `
-        <div class="action-box">
-          ${showWoundWarning ? '<div class="wound-warning">SOP 5.1: This wound referral has no photos attached. Policy requires send-back unless your clinical judgment overrides.</div>' : ''}
-          <div class="prompt">Acting as ${escapeHtml(user.name)} (${roleInfo.title})${user.isBackup ? ' <span class="backup-label">\u2014 backup</span>' : ''}</div>
-          <textarea placeholder="Add a note (optional for approval, required for rejection)" data-note-for="${c.id}:${s.chainIndex}:${s.stageIndex}">${prefillNote}</textarea>
-          <div class="field-error" data-sendback-err="${c.id}:${s.chainIndex}:${s.stageIndex}">A note is required when sending back.</div>
-          <div class="action-row">
-            <button class="btn btn-approve" data-action="approve" data-id="${c.id}" data-ci="${s.chainIndex}" data-si="${s.stageIndex}">Approve &amp; sign</button>
-            <button class="btn btn-reject" data-action="reject" data-id="${c.id}" data-ci="${s.chainIndex}" data-si="${s.stageIndex}">Send back</button>
-          </div>
-        </div>`;
+      const taId = `note-${c.id}-${s.chainIndex}-${s.stageIndex}`;
+      if(isNurseStage){
+        const micDenied = state._micDenied;
+        const recording = isRecording(taId);
+        const nurseFiles = nurseSignoffFiles[taId] || [];
+        actionHtml = `
+          <div class="action-box">
+            <div class="prompt">Acting as ${escapeHtml(user.name)} (${roleInfo.title})${user.isBackup ? ' <span class="backup-label">\u2014 backup</span>' : ''}</div>
+            <div class="nurse-req-msg" id="nurse-req-${taId}">Nurse sign-off requires notes, a file attachment, or dictation.</div>
+            ${recording ? '<div class="mic-status"><span class="pulse-dot"></span> Listening\u2026 tap mic to stop</div>' : ''}
+            <textarea id="${taId}" placeholder="Visit notes \u2014 patient condition observed, care delivered, concerns..." data-note-for="${c.id}:${s.chainIndex}:${s.stageIndex}" data-nurse="1">${prefillNote}</textarea>
+            <div class="field-error" data-sendback-err="${c.id}:${s.chainIndex}:${s.stageIndex}">A note is required when sending back.</div>
+            <div class="nurse-inputs">
+              <label class="btn-attach-file ${nurseFiles.length ? 'has-file' : ''}" data-nurse-attach="${taId}">
+                <span>\u{1F4CE}</span> ${nurseFiles.length ? nurseFiles.length + ' file' + (nurseFiles.length > 1 ? 's' : '') : 'Attach file'}
+                <input type="file" id="nurse-file-${taId}" multiple accept="image/*,.pdf" capture="environment" data-action="nurse-file-change" data-ta="${taId}">
+              </label>
+              ${speechSupported && !micDenied
+                ? `<button class="btn-mic ${recording ? 'recording' : ''}" data-action="${recording ? 'stop-dictation' : 'start-dictation'}" data-ta="${taId}">
+                    <span class="mic-icon">\u{1F3A4}</span> ${recording ? 'Stop' : 'Dictate'}
+                  </button>`
+                : (micDenied
+                  ? '<div class="mic-unavailable">Mic permission denied \u2014 type or attach instead</div>'
+                  : '<div class="mic-unavailable">Dictation unavailable \u2014 type or attach instead</div>')}
+            </div>
+            <div class="action-row">
+              <button class="btn btn-approve" data-action="approve" data-id="${c.id}" data-ci="${s.chainIndex}" data-si="${s.stageIndex}" data-nurse-ta="${taId}" id="approve-btn-${taId}" disabled>Approve &amp; sign</button>
+              <button class="btn btn-reject" data-action="reject" data-id="${c.id}" data-ci="${s.chainIndex}" data-si="${s.stageIndex}">Send back</button>
+            </div>
+          </div>`;
+      } else {
+        actionHtml = `
+          <div class="action-box">
+            ${showWoundWarning ? '<div class="wound-warning">SOP 5.1: This wound referral has no photos attached. Policy requires send-back unless your clinical judgment overrides.</div>' : ''}
+            <div class="prompt">Acting as ${escapeHtml(user.name)} (${roleInfo.title})${user.isBackup ? ' <span class="backup-label">\u2014 backup</span>' : ''}</div>
+            <textarea placeholder="Add a note (optional for approval, required for rejection)" data-note-for="${c.id}:${s.chainIndex}:${s.stageIndex}">${prefillNote}</textarea>
+            <div class="field-error" data-sendback-err="${c.id}:${s.chainIndex}:${s.stageIndex}">A note is required when sending back.</div>
+            <div class="action-row">
+              <button class="btn btn-approve" data-action="approve" data-id="${c.id}" data-ci="${s.chainIndex}" data-si="${s.stageIndex}">Approve &amp; sign</button>
+              <button class="btn btn-reject" data-action="reject" data-id="${c.id}" data-ci="${s.chainIndex}" data-si="${s.stageIndex}">Send back</button>
+            </div>
+          </div>`;
+      }
     } else {
       actionHtml = `<div class="waiting-note">Waiting on the ${roleInfo.title} to review.</div>`;
     }
@@ -1910,6 +2095,8 @@ function attachHandlers(){
       else if(action==='reset-demo'){ if(confirm('Reset all data to demo defaults?')) resetState(); }
       else if(action==='export-audit'){ exportAuditCsv(el.dataset.id); }
       else if(action==='export-audit-json'){ exportAuditJson(el.dataset.id); }
+      else if(action==='start-dictation'){ startDictation(el.dataset.ta); }
+      else if(action==='stop-dictation'){ stopDictation(); render(); }
       else if(action==='start-visit'){ startVisit(el.dataset.id); }
       else if(action==='complete-visit'){ completeVisit(el.dataset.id, el.dataset.vid); }
       else if(action==='toggle-amend'){ state.amendingVisitId = state.amendingVisitId === el.dataset.vid ? null : el.dataset.vid; render(); }
@@ -1927,6 +2114,40 @@ function attachHandlers(){
   setupModalWoundWarning('rs-diagnosis', 'rs-wound', 'rs-files', 'rs-file-preview', 'rs-wound-warning',
     state.resubmitModal ? (state.cases.find(x=>x.id===state.resubmitModal.caseId)||{attachments:[]}).attachments.filter(a=>a.type.startsWith('image/')).length : 0
   );
+
+  // --- Nurse input validation: wire up textarea + file inputs to enable/disable approve ---
+  document.querySelectorAll('textarea[data-nurse="1"]').forEach(ta => {
+    const taId = ta.id;
+    function updateNurseBtn(){
+      const btn = document.getElementById('approve-btn-' + taId);
+      const msg = document.getElementById('nurse-req-' + taId);
+      const satisfied = nurseInputSatisfied(taId);
+      if(btn) btn.disabled = !satisfied;
+      if(msg) msg.style.display = satisfied ? 'none' : 'block';
+    }
+    ta.addEventListener('input', () => {
+      // Track typed source
+      if(ta.value.trim() && !noteSources[taId]) noteSources[taId] = ['typed'];
+      else if(ta.value.trim() && noteSources[taId] && !noteSources[taId].includes('typed') && !noteSources[taId].includes('dictated')) noteSources[taId].push('typed');
+      updateNurseBtn();
+    });
+    // File change
+    const fileInput = document.getElementById('nurse-file-' + taId);
+    if(fileInput){
+      fileInput.addEventListener('change', async () => {
+        const files = await readFiles(fileInput);
+        nurseSignoffFiles[taId] = files;
+        updateNurseBtn();
+        // Update label
+        const label = fileInput.closest('.btn-attach-file');
+        if(label){
+          label.classList.toggle('has-file', files.length > 0);
+          label.querySelector('span').nextSibling.textContent = files.length ? ' ' + files.length + ' file' + (files.length > 1 ? 's' : '') : ' Attach file';
+        }
+      });
+    }
+    updateNurseBtn();
+  });
 }
 
 function setupModalWoundWarning(diagId, woundId, filesId, previewId, warningId, existingImageCount){
@@ -2067,17 +2288,44 @@ function exportAuditJson(caseId){
 
 /* ---------- Actions (append-only) ---------- */
 
-function actOnStage(caseId, ci, si, type){
+async function actOnStage(caseId, ci, si, type){
   const c = state.cases.find(x=>x.id===caseId);
   const noteEl = document.querySelector(`[data-note-for="${caseId}:${ci}:${si}"]`);
   const note = noteEl ? noteEl.value.trim() : '';
+  const isNurseStage = c.chains[ci].stages[si].role === 'nurse';
+  const taId = noteEl ? noteEl.id : null;
+
   if(type==='sendback' && !note){
     const errEl = document.querySelector(`[data-sendback-err="${caseId}:${ci}:${si}"]`);
     if(errEl) errEl.classList.add('visible');
     if(noteEl){ noteEl.parentElement.classList.add('has-error'); }
     return;
   }
+
+  // Nurse approval gate: must have note OR file
+  if(type === 'signoff' && isNurseStage && curRole() === 'nurse'){
+    if(!nurseInputSatisfied(taId)) return;
+  }
+
   const actor = actorFields(state.currentUserId);
+
+  // Nurse: attach files if any
+  let nurseNoteSource = null;
+  if(isNurseStage && curRole() === 'nurse' && taId){
+    const sources = getNurseNoteSources(taId);
+    nurseNoteSource = sources.length === 1 ? sources[0] : sources;
+
+    const files = nurseSignoffFiles[taId] || [];
+    if(files.length > 0){
+      const ts = now();
+      files.forEach(f => {
+        c.attachments.push({...f, addedByName:actor.actorName, addedByInitials:actor.actorInitials, addedAt:ts});
+        appendEvent(c, {type:'attachment_added', ...actor, timestamp:ts, note:'Nurse sign-off attachment', chainLine:c.chains[ci].line, stageIndex:si, attachmentId:f.id, attachmentName:f.name});
+      });
+      delete nurseSignoffFiles[taId];
+    }
+    delete noteSources[taId];
+  }
 
   // SOP 5.1: log rule override if head nurse approves wound case without photos
   if(type === 'signoff' && curRole() === 'head_nurse'){
@@ -2095,13 +2343,16 @@ function actOnStage(caseId, ci, si, type){
     }
   }
 
-  appendEvent(c, {
+  const evt = {
     type,
     ...actor,
     note,
     chainLine: c.chains[ci].line,
     stageIndex: si,
-  });
+  };
+  if(nurseNoteSource) evt.noteSource = nurseNoteSource;
+  appendEvent(c, evt);
+  stopDictation();
   render();
 }
 
@@ -2232,34 +2483,55 @@ function startVisit(caseId){
   render();
 }
 
-function completeVisit(caseId, visitId){
+async function completeVisit(caseId, visitId){
   const c = state.cases.find(x => x.id === caseId);
   if(!c) return;
-  const notesEl = document.getElementById('visit-notes');
+  const taId = 'visit-notes';
+  const notesEl = document.getElementById(taId);
   const notes = notesEl ? notesEl.value.trim() : '';
-  if(!notes){
+  const satisfied = nurseInputSatisfied(taId);
+  if(!satisfied){
     const errEl = document.getElementById('visit-notes-err');
     if(errEl) errEl.classList.add('visible');
     if(notesEl) notesEl.parentElement.classList.add('has-error');
     return;
   }
+  const actor = actorFields(state.currentUserId);
   const startEvt = c.events.find(e => e.type === 'visit_started' && e.visitId === visitId);
   if(!startEvt) return;
+
+  // Attach nurse files
+  const files = nurseSignoffFiles[taId] || [];
+  if(files.length > 0){
+    const ts = now();
+    files.forEach(f => {
+      c.attachments.push({...f, addedByName:actor.actorName, addedByInitials:actor.actorInitials, addedAt:ts});
+      appendEvent(c, {type:'attachment_added', ...actor, timestamp:ts, note:'Visit attachment', chainLine:c.chains[c.chains.length-1].line, stageIndex:null, attachmentId:f.id, attachmentName:f.name, visitId});
+    });
+    delete nurseSignoffFiles[taId];
+  }
+
+  const sources = getNurseNoteSources(taId);
+  const noteSource = sources.length === 1 ? sources[0] : sources;
+  delete noteSources[taId];
+
   const clockIn = startEvt.timestamp;
   const clockOut = now();
   const durationMinutes = Math.round((clockOut - clockIn) / 60000);
   appendEvent(c, {
     type: 'visit_completed',
-    ...actorFields(state.currentUserId),
+    ...actor,
     visitId,
     clockIn,
     clockOut,
     durationMinutes,
     notes,
+    noteSource,
     note: 'Visit completed (' + durationMinutes + ' min)',
     chainLine: c.chains[c.chains.length - 1].line,
     stageIndex: null,
   });
+  stopDictation();
   render();
 }
 
