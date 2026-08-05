@@ -56,6 +56,13 @@ The doctor's submission counts as the first sign-off. The case moves to Head Nur
 
 On phones, the primary actions also appear in a **sticky bar at the bottom** of the screen.
 
+**Nurse sign-off rule:** Nurses can never approve with an empty note. The nurse action box provides three input paths — use any combination:
+- **Type** notes directly in the text area
+- **Attach a file** (photo, document) using the attach button
+- **Dictate** notes using the mic button (uses your device's speech recognition; tap once to start, again to stop)
+
+The **Approve & sign** button stays disabled until at least one input is provided. The method used (typed, dictated, file, or a mix) is recorded in the audit trail as `noteSource`.
+
 ---
 
 ## Revising a sent-back case
@@ -92,13 +99,14 @@ Once a case is **Active** (all approvals complete), nurses can log visits:
 4. Tap **Start visit** — this records a clock-in timestamp
 
 **Completing a visit:**
-1. Write visit notes in the text area (required — the form won't submit without them)
+1. Provide visit notes using any of the three input paths: type, attach a file, or dictate via mic
 2. Tap **Complete visit** — this records clock-out, calculates duration, and saves the notes
 
 **Rules:**
 - A nurse with an **open visit** on any case cannot start a new visit elsewhere. The case list shows an "Unsubmitted notes" red badge on the blocking case
 - If a visit stays open past **4 hours**, it flags as stalled and the Head of Staff is notified
 - Visit notes and times are submitted together as one action
+- The same three input paths (type, attach, dictate) are available for visit notes
 
 **Amendments:**
 - Submitted visits cannot be edited, but you can add an **amendment** (correction entry). The original stays visible — append-only, per SOP.
@@ -150,3 +158,5 @@ In any case detail, scroll to **Full event history**:
 - Try the full flow: create a referral as Doctor, approve through each role, then log a visit as Nurse
 - Test a send-back: as Head Nurse, send back a case, then switch to Doctor to revise and resubmit
 - Test the visit gate: start a visit on one case, then try starting another on a different case
+- Test the nurse documentation rule: switch to a Nurse, try to approve — the button is disabled until you type, attach, or dictate
+- Test dictation: tap the mic button and speak (requires browser speech recognition support)
